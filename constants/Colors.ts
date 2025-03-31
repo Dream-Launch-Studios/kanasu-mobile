@@ -1,26 +1,38 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
+const Colors = {
+  // Brand & Accent Colors
+  primary: '#F7A072',         // Soft Coral (Primary CTA)
+  secondary: '#F9D56E',       // Warm Yellow (Highlights)
+  accent: '#9AD0EC',          // Soft Sky Blue (Secondary CTA)
+  playfulPink: '#F6B1C3',     // Light Pink
+  mintGreen: '#A1E3A1',       // Mint Green
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+  // Backgrounds
+  background: '#FFF8F0',      // Warm Off-White
+  cardBackground: '#FFF2E5',  // Light Peach
+  surface: '#FFFFFF',         // Plain white cards/modals
 
-export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+  // Text Colors
+  textPrimary: '#3A3A3A',     // Neutral Charcoal
+  textSecondary: '#6B7280',   // Muted Gray
+
+  // Status Colors
+  success: '#6EE7B7',         // Soft Green
+  warning: '#FBBF24',         // Golden Yellow
+  error: '#F87171',           // Coral Red
+
+  // UI Elements
+  border: '#E5E7EB',          // Light Gray Border
+  inputBackground: '#FFF2E5', // Same as card background
+  buttonPressed: '#F58549',   // Darker Coral for button press feedback
+
+  // Gradient Use (Header or Splash)
+  gradient: {
+    header: ['#F7A072', '#F9D56E', '#9AD0EC'], // Coral → Yellow → Blue
   },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+
+  // Neutrals
+  white: '#FFFFFF',
+  black: '#000000',
 };
+
+export default Colors;
