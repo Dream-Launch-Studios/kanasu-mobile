@@ -15,7 +15,7 @@ import { router } from "expo-router";
 const { width, height } = Dimensions.get("window");
 
 const Onboarding = () => {
-  const animation = useRef(null);
+  const animation = useRef<LottieView | null>(null);
 
   useEffect(() => {
     if (animation.current) {
@@ -59,7 +59,7 @@ const Onboarding = () => {
           >
             <TouchableOpacity
               style={styles.button}
-              onPress={() => router.push("/Screens")}
+              onPress={() => router.push("/Screens/login")}
               activeOpacity={0.85}
             >
               <Text style={styles.buttonText}>Get Started</Text>
