@@ -17,7 +17,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.1.24:3000/api";
+const API_BASE_URL = "http://192.168.215.178:3000/api";
 
 // Define types for the API response data
 interface Question {
@@ -165,7 +165,7 @@ const Assessments = () => {
           <Text style={styles.dateValue}>{formatDate(item.endDate)}</Text>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.startButton}
           onPress={() => router.push(`/Screens/takeAssessment?id=${item.id}`)}
         >

@@ -21,7 +21,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.1.24:3000/api";
+const API_BASE_URL = "http://192.1 68.215.178:3000/api";
 
 const Login = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -118,33 +118,39 @@ const Login = () => {
           otp: enteredOtp,
         }
       );
-      
+
       console.log("OTP verification successful, saving data...");
-      
+
       // Store the authentication token and anganwadi data
-      await AsyncStorage.setItem('authToken', response.data.token);
-      
+      await AsyncStorage.setItem("authToken", response.data.token);
+
       // Log what we received to help with debugging
       console.log("Response data keys:", Object.keys(response.data));
-      
+
       // Store anganwadi ID for future API calls
       if (response.data.anganwadi?.id) {
         console.log("Storing anganwadi ID:", response.data.anganwadi.id);
-        await AsyncStorage.setItem('anganwadiId', response.data.anganwadi.id);
+        await AsyncStorage.setItem("anganwadiId", response.data.anganwadi.id);
       }
-      
+
       // Store teacher data
       if (response.data.teacher) {
         console.log("Storing teacher data");
-        await AsyncStorage.setItem('teacherData', JSON.stringify(response.data.teacher));
+        await AsyncStorage.setItem(
+          "teacherData",
+          JSON.stringify(response.data.teacher)
+        );
       }
-      
+
       // Store basic anganwadi data returned from login
       if (response.data.anganwadi) {
         console.log("Storing anganwadi data from login response");
-        await AsyncStorage.setItem('anganwadiData', JSON.stringify(response.data.anganwadi));
+        await AsyncStorage.setItem(
+          "anganwadiData",
+          JSON.stringify(response.data.anganwadi)
+        );
       }
-      
+
       // Navigate to home screen
       router.push("/Screens/home");
     } catch (error: any) {

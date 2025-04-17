@@ -19,7 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Audio } from "expo-av";
 
 const { width, height } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.1.24:3000/api";
+const API_BASE_URL = "http://192.168.215.178:3000/api";
 
 interface Question {
   id: string;
@@ -349,6 +349,193 @@ const TakeAssessment = () => {
     }
   };
 
+  // Create metadata JSON for the audio recording
+  const createAudioMetadata = () => {
+    if (!currentStudent || !assessment) {
+      return null;
+    }
+
+    // Format timestamps as mm:ss format for better readability
+    const formatTime = (milliseconds: number) => {
+      const totalSeconds = Math.floor(milliseconds / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes.toString().padStart(2, "0")}:${seconds
+        .toString()
+        .padStart(2, "0")}`;
+    };
+
+    // Create response segments with formatted timestamps and question info
+    const segments = questionTimestamps.map((timestamp, index) => {
+      // Find the question text using the ID
+      const question = allQuestions.find((q) => q.id === timestamp.questionId);
+
+      // Find which topic this question belongs to for better context
+      let topicName = "Unknown Topic";
+      if (assessment && assessment.topics) {
+        for (const topic of assessment.topics) {
+          if (
+            topic.questions &&
+            topic.questions.some((q) => q.id === timestamp.questionId)
+          ) {
+            topicName = topic.name;
+            break;
+          }
+        }
+      }
+
+      return {
+        index: index + 1,
+        questionId: timestamp.questionId,
+        questionText: question?.text || "Unknown question",
+        topicName: topicName,
+        questionType: question?.questionType || "SPEAKING",
+        startTimeMs: timestamp.startTime,
+        endTimeMs: timestamp.endTime,
+        durationMs: timestamp.endTime - timestamp.startTime,
+        startTimeFormatted: formatTime(timestamp.startTime),
+        endTimeFormatted: formatTime(timestamp.endTime),
+        durationFormatted: formatTime(timestamp.endTime - timestamp.startTime),
+      };
+    });
+
+    // Add a formatted timestamp for the recording date
+    const recordedDate = new Date();
+    const formattedDate = recordedDate.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    // Create the metadata object with optional audioUrl field
+    return {
+      recordingId: `${currentStudent.id}_${Date.now()}`,
+      studentId: currentStudent.id,
+      studentName: currentStudent.name,
+      assessmentId: assessment.id,
+      assessmentName: assessment.name,
+      totalDurationMs:
+        questionTimestamps.length > 0
+          ? Math.max(...questionTimestamps.map((t) => t.endTime))
+          : 0,
+      totalDurationFormatted: formatTime(
+        questionTimestamps.length > 0
+          ? Math.max(...questionTimestamps.map((t) => t.endTime))
+          : 0
+      ),
+      recordedAt: recordedDate.toISOString(),
+      recordedAtFormatted: formattedDate,
+      segments: segments,
+      totalSegments: segments.length,
+      audioUrl: "", // Initialize with empty string, will be updated later
+    };
+  };
+
+  // Upload metadata JSON to server
+  const uploadMetadata = async (metadata: any) => {
+    try {
+      console.log("Preparing to upload metadata to server");
+
+      const authToken = await AsyncStorage.getItem("authToken");
+      if (!authToken) {
+        throw new Error("Authentication token not found");
+      }
+
+      // Make a deep copy to avoid modifying the original object
+      const metadataCopy = JSON.parse(JSON.stringify(metadata));
+
+      // Ensure metadata has all required fields
+      if (
+        !metadataCopy.recordingId ||
+        !metadataCopy.studentId ||
+        !metadataCopy.segments
+      ) {
+        console.error("Metadata missing required fields");
+        return null;
+      }
+
+      console.log(
+        `Uploading metadata with ${metadataCopy.segments.length} segments`
+      );
+
+      // First attempt - try regular upload endpoint
+      try {
+        const response = await axios.post(
+          `${API_BASE_URL}/student-responses/upload-metadata`,
+          { metadata: metadataCopy },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+            timeout: 10000, // 10 second timeout
+          }
+        );
+
+        console.log("Metadata upload successful:", response.status);
+        console.log(
+          "Metadata upload response data:",
+          JSON.stringify(response.data, null, 2)
+        );
+
+        if (response.data && response.data.metadataUrl) {
+          return response.data.metadataUrl;
+        }
+
+        console.warn("No metadata URL in response:", response.data);
+      } catch (error: any) {
+        console.error("Primary metadata upload failed:", error.message);
+        // Continue to fallback method
+      }
+
+      // Fallback approach - try backup endpoint if available
+      try {
+        console.log("Attempting fallback metadata upload");
+        const fallbackResponse = await axios.post(
+          `${API_BASE_URL}/student-responses/upload-metadata`,
+          { metadata: metadataCopy },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+            timeout: 10000,
+          }
+        );
+
+        if (fallbackResponse.data && fallbackResponse.data.metadataUrl) {
+          console.log("Fallback metadata upload successful");
+          return fallbackResponse.data.metadataUrl;
+        }
+      } catch (secondaryError: any) {
+        console.error(
+          "Fallback metadata upload also failed:",
+          secondaryError.message
+        );
+      }
+
+      // Store metadata locally if all upload attempts fail
+      try {
+        const metadataKey = `metadata_${metadata.recordingId}`;
+        await AsyncStorage.setItem(metadataKey, JSON.stringify(metadataCopy));
+        console.log("Metadata saved locally for later upload");
+      } catch (storageError) {
+        console.error("Failed to save metadata locally:", storageError);
+      }
+
+      return null; // Continue with the process even if metadata upload fails
+    } catch (error: any) {
+      console.error("Metadata upload error:", error.message);
+      if (error.response) {
+        console.error("Response status:", error.response.status);
+        console.error("Response data:", JSON.stringify(error.response.data));
+      }
+      return null;
+    }
+  };
+
   // Submit all responses to the backend
   const submitResponses = async () => {
     if (!currentStudent || !assessment) {
@@ -368,11 +555,27 @@ const TakeAssessment = () => {
         return;
       }
 
+      // Create metadata for the recording
+      const metadata = createAudioMetadata();
+      console.log("Created metadata for submission");
+
       // Upload audio file to get cloud URL
       let audioUrl;
+      let metadataUrl = null;
       try {
         audioUrl = await uploadAudio(audioFileUri);
         console.log("Audio uploaded successfully:", audioUrl);
+
+        // Update metadata with audio URL
+        if (metadata) {
+          metadata.audioUrl = audioUrl;
+        }
+
+        // Upload metadata if available
+        if (metadata) {
+          metadataUrl = await uploadMetadata(metadata);
+          console.log("Metadata URL:", metadataUrl);
+        }
       } catch (uploadError) {
         console.error("Audio upload failed:", uploadError);
         setIsSubmitting(false);
@@ -391,9 +594,16 @@ const TakeAssessment = () => {
         ).toISOString(),
         endTime: new Date(recordingStartTime + timestamp.endTime).toISOString(),
         audioUrl: audioUrl, // Add the audio URL to each response
+        metadataUrl: metadataUrl, // Add the metadata URL to each response
+        // Include timestamp info in seconds for easier processing
+        startTimeSeconds: Math.floor(timestamp.startTime / 1000),
+        endTimeSeconds: Math.floor(timestamp.endTime / 1000),
+        durationSeconds: Math.floor(
+          (timestamp.endTime - timestamp.startTime) / 1000
+        ),
       }));
 
-      console.log("Submitting response data with audio URL");
+      console.log("Submitting response data with audio URL and metadata URL");
 
       // Submit to audio assessment endpoint
       const authToken = await AsyncStorage.getItem("authToken");
@@ -403,9 +613,21 @@ const TakeAssessment = () => {
         studentId: currentStudent.id,
         responses,
         audioUrl, // Also add at the top level for flexibility
+        metadataUrl, // Include metadata URL if available
+        timestamps: questionTimestamps, // Include raw timestamps for reference
       };
 
-      console.log("Submission payload:", payload);
+      console.log("Submission payload prepared");
+
+      // Add detailed logging of the payload
+      console.log("============ SUBMISSION PAYLOAD ============");
+      console.log("Assessment ID:", assessment.id);
+      console.log("Student ID:", currentStudent.id);
+      console.log("Response count:", responses.length);
+      console.log("Audio URL:", audioUrl);
+      console.log("Metadata URL:", metadataUrl);
+      console.log("Full responses array:", JSON.stringify(responses, null, 2));
+      console.log("==========================================");
 
       try {
         const response = await axios.post(
@@ -415,6 +637,10 @@ const TakeAssessment = () => {
         );
 
         console.log("Submission response:", response.status);
+        console.log(
+          "Submission response data:",
+          JSON.stringify(response.data, null, 2)
+        );
 
         Alert.alert(
           "Submission Complete",
@@ -435,6 +661,8 @@ const TakeAssessment = () => {
           responses,
           audioUri: audioFileUri,
           audioUrl,
+          metadata,
+          metadataUrl,
         });
 
         await AsyncStorage.setItem(

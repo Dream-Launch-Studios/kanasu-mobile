@@ -17,7 +17,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.1.24:3000/api";
+const API_BASE_URL = "http://192.168.215.178:3000/api";
 
 // Define types for the API response data
 interface Student {
@@ -253,7 +253,7 @@ const Home = () => {
 
           {/* Quick Action Items */}
           <View style={styles.dashboardGrid}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.dashboardItem}
               onPress={() => router.push("/Screens/assessments")}
             >
@@ -324,7 +324,6 @@ const Home = () => {
                       </Text>
                     </View>
                     <View style={styles.studentInfo}>
-                      {/* Console logs need to be outside JSX or wrapped in curly braces with && operator */}
                       <Text style={styles.studentName}>{student.name}</Text>
                       <Text style={styles.studentGender}>
                         {student.gender === "MALE" ? "Boy" : "Girl"}
