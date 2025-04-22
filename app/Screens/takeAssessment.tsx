@@ -16,10 +16,10 @@ import { router, useLocalSearchParams } from "expo-router";
 import Colors from "@/constants/Colors";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_URL } from "@/constants/api";
 import { Audio } from "expo-av";
 
 const { width, height } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.215.178:3000/api";
 
 interface Question {
   id: string;
@@ -140,7 +140,7 @@ const TakeAssessment = () => {
       try {
         const config = { headers: { Authorization: `Bearer ${authToken}` } };
         const response = await axios.get(
-          `${API_BASE_URL}/global-assessments/${assessmentId}`,
+          `${API_URL}/global-assessments/${assessmentId}`,
           config
         );
 
@@ -292,8 +292,8 @@ const TakeAssessment = () => {
       // The backend is expecting "file" field, not "audio"
       formData.append("file", {
         uri: uri,
-        type: "audio/m4a",
-        name: `recording_${Date.now()}.m4a`,
+        type: "audio/aac",
+        name: `recording_${Date.now()}.acc`,
       } as any);
 
       console.log("Sending request to upload endpoint with file field...");
@@ -304,13 +304,13 @@ const TakeAssessment = () => {
         JSON.stringify({
           fieldName: "file",
           uri: uri.substring(0, 50) + "...", // Show part of the URI for debugging
-          type: "audio/m4a",
-          name: `recording_${Date.now()}.m4a`,
+          type: "audio/acc",
+          name: `recording_${Date.now()}.acc`,
         })
       );
 
       // Change to a working endpoint (questions/upload-audio)
-      const uploadEndpoint = `${API_BASE_URL}/questions/upload-audio`;
+      const uploadEndpoint = `${API_URL}/questions/upload-audio`;
       console.log("Using upload endpoint:", uploadEndpoint);
 
       // Upload to server
@@ -463,7 +463,7 @@ const TakeAssessment = () => {
       // First attempt - try regular upload endpoint
       try {
         const response = await axios.post(
-          `${API_BASE_URL}/student-responses/upload-metadata`,
+          `${API_URL}/student-responses/upload-metadata`,
           { metadata: metadataCopy },
           {
             headers: {
@@ -494,7 +494,7 @@ const TakeAssessment = () => {
       try {
         console.log("Attempting fallback metadata upload");
         const fallbackResponse = await axios.post(
-          `${API_BASE_URL}/student-responses/upload-metadata`,
+          `${API_URL}/student-responses/upload-metadata`,
           { metadata: metadataCopy },
           {
             headers: {
@@ -631,7 +631,7 @@ const TakeAssessment = () => {
 
       try {
         const response = await axios.post(
-          `${API_BASE_URL}/student-responses/audio-assessment`,
+          `${API_URL}/student-responses/audio-assessment`,
           payload,
           { headers: { Authorization: `Bearer ${authToken}` } }
         );

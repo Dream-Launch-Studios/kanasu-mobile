@@ -15,9 +15,8 @@ import { router } from "expo-router";
 import Colors from "@/constants/Colors";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { API_URL } from "@/constants/api";
 const { width, height } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.215.178:3000/api";
 
 // Define types for the API response data
 interface Question {
@@ -83,7 +82,7 @@ const Assessments = () => {
           };
 
           // Use the endpoint from the controller
-          const assessmentsUrl = `${API_BASE_URL}/global-assessments/active?anganwadiId=${anganwadiId}`;
+          const assessmentsUrl = `${API_URL}/global-assessments/active?anganwadiId=${anganwadiId}`;
           console.log("Fetching from:", assessmentsUrl);
 
           const response = await axios.get(assessmentsUrl, config);

@@ -15,9 +15,8 @@ import { router } from "expo-router";
 import Colors from "@/constants/Colors";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { API_URL } from "@/constants/api";
 const { width, height } = Dimensions.get("window");
-const API_BASE_URL = "http://192.168.215.178:3000/api";
 
 // Define types for the API response data
 interface Student {
@@ -88,7 +87,7 @@ const Home = () => {
           };
 
           // Use the correct endpoint from anganwadiController.ts
-          const anganwadiUrl = `${API_BASE_URL}/anganwadis/${anganwadiId}`;
+          const anganwadiUrl = `${API_URL}/anganwadis/${anganwadiId}`;
           console.log("Fetching from:", anganwadiUrl);
 
           const response = await axios.get(anganwadiUrl, config);
