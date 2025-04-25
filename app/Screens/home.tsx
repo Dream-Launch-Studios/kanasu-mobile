@@ -325,7 +325,14 @@ const Home = () => {
                     <View style={styles.studentInfo}>
                       <Text style={styles.studentName}>{student.name}</Text>
                       <Text style={styles.studentGender}>
-                        {student.gender === "MALE" ? "Boy" : "Girl"}
+                        {student.gender === "MALE"
+                          ? "Boy"
+                          : student.gender === "FEMALE"
+                          ? "Girl"
+                          : "Other"}
+                        {student.status === "ACTIVE"
+                          ? " (Active)"
+                          : " (Inactive)"}
                       </Text>
                     </View>
                     <Text style={styles.studentArrow}>›</Text>

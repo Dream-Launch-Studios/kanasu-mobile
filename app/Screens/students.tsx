@@ -137,8 +137,12 @@ const Students = () => {
       <View style={styles.studentInfo}>
         <Text style={styles.studentName}>{item.name}</Text>
         <Text style={styles.studentDetails}>
-          {item.gender === "MALE" ? "Girl" : "Boy"} •{" "}
-          {item.status === "ACTIVE" ? "Inactive" : "Active"}
+          {item.gender === "MALE"
+            ? "Boy"
+            : item.gender === "FEMALE"
+            ? "Girl"
+            : "Other"}{" "}
+          • {item.status === "ACTIVE" ? "Active" : "Inactive"}
         </Text>
       </View>
       <Text style={styles.arrowIcon}>›</Text>
