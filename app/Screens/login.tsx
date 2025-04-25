@@ -18,10 +18,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import Colors from "@/constants/Colors";
 import axios from "axios";
+import { API_URL } from "@/constants/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width, height } = Dimensions.get("window");
-const API_BASE_URL = "http://192.1 68.215.178:3000/api";
 
 const Login = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -57,12 +57,9 @@ const Login = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/teacher-auth/request-otp`,
-        {
-          phone: phoneNumber,
-        }
-      );
+      const response = await axios.post(`${API_URL}/teacher-auth/request-otp`, {
+        phone: phoneNumber,
+      });
 
       setIsOtpSent(true);
       setResendDisabled(true);
@@ -111,13 +108,10 @@ const Login = () => {
     setLoading(true);
     try {
       console.log("Verifying OTP with backend...");
-      const response = await axios.post(
-        `${API_BASE_URL}/teacher-auth/verify-otp`,
-        {
-          phone: phoneNumber,
-          otp: enteredOtp,
-        }
-      );
+      const response = await axios.post(`${API_URL}/teacher-auth/verify-otp`, {
+        phone: phoneNumber,
+        otp: enteredOtp,
+      });
 
       console.log("OTP verification successful, saving data...");
 
