@@ -22,7 +22,7 @@ const { width, height } = Dimensions.get("window");
 interface Student {
   id: string;
   name: string;
-  gender: "MALE" | "FEMALE";
+  gender: "MALE" | "FEMALE" | "OTHER";
   status: "ACTIVE" | "INACTIVE";
 }
 
@@ -166,6 +166,8 @@ const Home = () => {
     anganwadi?.students?.filter((s) => s.gender === "MALE").length || 0;
   const femaleStudents =
     anganwadi?.students?.filter((s) => s.gender === "FEMALE").length || 0;
+  const otherStudents =
+    anganwadi?.students?.filter((s) => s.gender === "OTHER").length || 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -230,19 +232,28 @@ const Home = () => {
 
           {/* Stats Overview */}
           <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{studentCount}</Text>
-              <Text style={styles.statLabel}>Total Students</Text>
+            <View style={styles.statsRow}>
+              <View style={[styles.statCard, styles.statCardLeft]}>
+                <Text style={styles.statNumber}>{studentCount}</Text>
+                <Text style={styles.statLabel}>Total Students</Text>
+              </View>
+
+              <View style={[styles.statCard, styles.statCardRight]}>
+                <Text style={styles.statNumber}>{maleStudents}</Text>
+                <Text style={styles.statLabel}>Boys</Text>
+              </View>
             </View>
 
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{maleStudents}</Text>
-              <Text style={styles.statLabel}>Boys</Text>
-            </View>
+            <View style={styles.statsRow}>
+              <View style={[styles.statCard, styles.statCardLeft]}>
+                <Text style={styles.statNumber}>{femaleStudents}</Text>
+                <Text style={styles.statLabel}>Girls</Text>
+              </View>
 
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{femaleStudents}</Text>
-              <Text style={styles.statLabel}>Girls</Text>
+              <View style={[styles.statCard, styles.statCardRight]}>
+                <Text style={styles.statNumber}>{otherStudents}</Text>
+                <Text style={styles.statLabel}>Other</Text>
+              </View>
             </View>
           </View>
 
@@ -503,35 +514,47 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   statsContainer: {
+    marginTop: 15,
+    marginBottom: 5,
+  },
+  statsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 15,
+    marginBottom: 10,
   },
   statCard: {
     backgroundColor: Colors.surface,
-    width: "31%",
+    width: "48%",
     borderRadius: 16,
-    padding: 15,
+    padding: 20,
     alignItems: "center",
+    justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  statCardLeft: {
+    marginRight: 5,
+  },
+  statCardRight: {
+    marginLeft: 5,
+  },
   statNumber: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 28,
+    fontWeight: "800",
     color: Colors.primary,
-    marginBottom: 5,
+    marginBottom: 8,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 14,
+    fontWeight: "600",
     color: Colors.textSecondary,
     textAlign: "center",
   },

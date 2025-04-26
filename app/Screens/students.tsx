@@ -162,8 +162,9 @@ const Students = () => {
         </View>
       </SafeAreaView>
     );
-  }
 
+    þ;
+  }
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />

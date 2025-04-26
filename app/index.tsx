@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   View,
   Text,
@@ -7,39 +7,39 @@ import {
   Dimensions,
   StatusBar,
   SafeAreaView,
+  Image,
 } from "react-native";
-import LottieView from "lottie-react-native";
 import Colors from "@/constants/Colors";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import Animated, { FadeIn } from "react-native-reanimated";
 const { width, height } = Dimensions.get("window");
 
 const Onboarding = () => {
-  const animation = useRef<LottieView | null>(null);
-
-  useEffect(() => {
-    if (animation.current) {
-      animation.current.play();
-    }
-  }, []);
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-      <View style={styles.container}>
+      <Animated.View entering={FadeIn.duration(1000)} style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Kanasu</Text>
           <View style={styles.titleUnderline} />
         </View>
 
         <View style={styles.animationWrapper}>
-          <LottieView
-            autoPlay
-            ref={animation}
-            loop={true}
+          <View style={styles.backgroundPattern}>
+            <View style={[styles.patternCircle, styles.patternCircle1]} />
+            <View style={[styles.patternCircle, styles.patternCircle2]} />
+            <View style={[styles.patternCircle, styles.patternCircle3]} />
+          </View>
+          <LinearGradient
+            colors={["rgba(255,255,255,0.9)", "rgba(255,255,255,0.6)"]}
+            style={styles.gradientOverlay}
+          />
+          <Image
+            source={require("@/assets/images/teacher.png")}
             style={styles.animation}
-            source={require("@/assets/animation/Main.json")}
+            resizeMode="contain"
           />
         </View>
 
@@ -66,7 +66,7 @@ const Onboarding = () => {
             </TouchableOpacity>
           </LinearGradient>
         </View>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 };
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     height: width * 0.85,
     borderRadius: 30,
     overflow: "hidden",
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -118,11 +118,51 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 8,
+    position: "relative",
+  },
+  backgroundPattern: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    opacity: 1,
+  },
+  patternCircle: {
+    position: "absolute",
+    borderRadius: 999,
+    backgroundColor: Colors.primary + "40",
+  },
+  patternCircle1: {
+    width: width * 0.5,
+    height: width * 0.5,
+    top: -width * 0.15,
+    left: -width * 0.15,
+    backgroundColor: Colors.primary + "30",
+  },
+  patternCircle2: {
+    width: width * 0.4,
+    height: width * 0.4,
+    bottom: -width * 0.1,
+    right: -width * 0.1,
+    backgroundColor: Colors.primary + "35",
+  },
+  patternCircle3: {
+    width: width * 0.35,
+    height: width * 0.35,
+    top: width * 0.25,
+    left: width * 0.25,
+    backgroundColor: Colors.primary + "25",
+  },
+  gradientOverlay: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    zIndex: 1,
+    opacity: 0.7,
   },
   animation: {
-    width: width * 0.8,
-    height: width * 0.8,
-    backgroundColor: "transparent",
+    width: "90%",
+    height: "90%",
+    zIndex: 2,
   },
   contentContainer: {
     width: "100%",
