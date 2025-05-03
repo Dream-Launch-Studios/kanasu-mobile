@@ -293,16 +293,19 @@ const Home = () => {
               <Text style={styles.itemTitle}>Students</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.dashboardItem}>
+            <TouchableOpacity
+              style={styles.dashboardItem}
+              onPress={() => router.push("/Screens/pendingUploads")}
+            >
               <View
                 style={[
                   styles.iconContainer,
-                  { backgroundColor: Colors.accent + "20" },
+                  { backgroundColor: Colors.warning + "20" },
                 ]}
               >
-                <Text style={styles.iconText}>📝</Text>
+                <Text style={styles.iconText}>📤</Text>
               </View>
-              <Text style={styles.itemTitle}>Activities</Text>
+              <Text style={styles.itemTitle}>Pending Uploads</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.dashboardItem}>

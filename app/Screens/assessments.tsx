@@ -87,26 +87,34 @@ const Assessments = () => {
 
           const response = await axios.get(assessmentsUrl, config);
           console.log("Assessments fetched successfully");
+          console.log("Response data:", response.data);
 
-          if (Array.isArray(response.data)) {
+          // Check if response.data exists and is an array
+          if (response.data && Array.isArray(response.data)) {
+            console.log("Number of assessments:", response.data.length);
             setAssessments(response.data);
             setError(null);
           } else {
-            console.log("Invalid assessment data format");
+            console.log("Invalid assessment data format:", response.data);
             setError("Unable to load assessments data");
+            setAssessments([]); // Clear assessments if data is invalid
           }
         } catch (apiError: any) {
           console.error("Error fetching assessments:", apiError.message);
           console.log("Status:", apiError.response?.status);
           console.log("Error details:", apiError.response?.data);
           setError("Could not fetch assessments");
+          setAssessments([]); // Clear assessments on error
         }
       } else {
+        console.log("Missing anganwadiId or authToken");
         setError("No anganwadi information available. Please log in again.");
+        setAssessments([]); // Clear assessments if no auth
       }
     } catch (e) {
       console.error("Error loading data:", e);
       setError("Failed to load assessments data");
+      setAssessments([]); // Clear assessments on general error
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -174,21 +182,6 @@ const Assessments = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar
-          barStyle="dark-content"
-          backgroundColor={Colors.background}
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Loading assessments...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
@@ -209,30 +202,37 @@ const Assessments = () => {
           </View>
         )}
 
-        <FlatList
-          data={assessments}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {error
-                  ? "Error loading assessments"
-                  : "No active assessments available"}
-              </Text>
-            </View>
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[Colors.primary]}
-              tintColor={Colors.primary}
-            />
-          }
-        />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Loading assessments...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={assessments}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {error
+                    ? "Error loading assessments"
+                    : "No active assessments available"}
+                </Text>
+              </View>
+            }
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[Colors.primary]}
+                tintColor={Colors.primary}
+              />
+            }
+          />
+        )}
       </View>
     </SafeAreaView>
   );

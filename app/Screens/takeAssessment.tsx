@@ -559,129 +559,86 @@ const TakeAssessment = () => {
       const metadata = createAudioMetadata();
       console.log("Created metadata for submission");
 
-      // Upload audio file to get cloud URL
-      let audioUrl;
-      let metadataUrl = null;
-      try {
-        audioUrl = await uploadAudio(audioFileUri);
-        console.log("Audio uploaded successfully:", audioUrl);
-
-        // Update metadata with audio URL
-        if (metadata) {
-          metadata.audioUrl = audioUrl;
-        }
-
-        // Upload metadata if available
-        if (metadata) {
-          metadataUrl = await uploadMetadata(metadata);
-          console.log("Metadata URL:", metadataUrl);
-        }
-      } catch (uploadError) {
-        console.error("Audio upload failed:", uploadError);
-        setIsSubmitting(false);
-        Alert.alert(
-          "Upload Error",
-          "Failed to upload audio recording. Please try again."
-        );
-        return;
-      }
-
-      // Create response entries for each question timestamp
-      const responses = questionTimestamps.map((timestamp) => ({
-        questionId: timestamp.questionId,
-        startTime: new Date(
-          recordingStartTime + timestamp.startTime
-        ).toISOString(),
-        endTime: new Date(recordingStartTime + timestamp.endTime).toISOString(),
-        audioUrl: audioUrl, // Add the audio URL to each response
-        metadataUrl: metadataUrl, // Add the metadata URL to each response
-        // Include timestamp info in seconds for easier processing
-        startTimeSeconds: Math.floor(timestamp.startTime / 1000),
-        endTimeSeconds: Math.floor(timestamp.endTime / 1000),
-        durationSeconds: Math.floor(
-          (timestamp.endTime - timestamp.startTime) / 1000
-        ),
-      }));
-
-      console.log("Submitting response data with audio URL and metadata URL");
-
-      // Submit to audio assessment endpoint
-      const authToken = await AsyncStorage.getItem("authToken");
-
-      const payload = {
-        assessmentId: assessment.id,
+      // Store response locally
+      const localResponse = {
         studentId: currentStudent.id,
-        responses,
-        audioUrl, // Also add at the top level for flexibility
-        metadataUrl, // Include metadata URL if available
-        timestamps: questionTimestamps, // Include raw timestamps for reference
+        studentName: currentStudent.name,
+        assessmentId: assessment.id,
+        assessmentName: assessment.name,
+        audioUri: audioFileUri,
+        metadata: metadata,
+        timestamps: questionTimestamps,
+        recordedAt: new Date().toISOString(),
+        status: "pending" as const,
       };
 
-      console.log("Submission payload prepared");
+      // Get existing responses from AsyncStorage
+      const existingResponses = await AsyncStorage.getItem("pendingResponses");
+      const pendingResponses = existingResponses
+        ? JSON.parse(existingResponses)
+        : [];
 
-      // Add detailed logging of the payload
-      console.log("============ SUBMISSION PAYLOAD ============");
-      console.log("Assessment ID:", assessment.id);
-      console.log("Student ID:", currentStudent.id);
-      console.log("Response count:", responses.length);
-      console.log("Audio URL:", audioUrl);
-      console.log("Metadata URL:", metadataUrl);
-      console.log("Full responses array:", JSON.stringify(responses, null, 2));
-      console.log("==========================================");
+      // Add new response
+      pendingResponses.push(localResponse);
 
-      try {
-        const response = await axios.post(
-          `${API_URL}/student-responses/audio-assessment`,
-          payload,
-          { headers: { Authorization: `Bearer ${authToken}` } }
-        );
+      // Save back to AsyncStorage
+      await AsyncStorage.setItem(
+        "pendingResponses",
+        JSON.stringify(pendingResponses)
+      );
 
-        console.log("Submission response:", response.status);
-        console.log(
-          "Submission response data:",
-          JSON.stringify(response.data, null, 2)
-        );
+      // Show success message with option to view pending uploads
+      Alert.alert(
+        "Response Saved",
+        "The response has been saved locally and will be uploaded later. You can view and upload it from the Pending Uploads section.",
+        [
+          {
+            text: "View Pending Uploads",
+            onPress: () => router.push("/Screens/pendingUploads"),
+          },
+          {
+            text: "Continue",
+            onPress: () => {
+              // Reset state for next student
+              setCurrentQuestionIndex(0);
+              setQuestionTimestamps([]);
+              setQuestionCompleted(false);
+              setIsCompleted(false);
+              setIsSubmitting(false);
+              setAudioUri(null);
+              setRecording(null);
+              setIsRecording(false);
 
-        Alert.alert(
-          "Submission Complete",
-          "All responses have been recorded successfully",
-          [{ text: "OK", onPress: () => router.push("/Screens/assessments") }]
-        );
-      } catch (error: any) {
-        console.error("Submission error:", error.message);
+              // Find the next student in the list
+              const currentIndex = students.findIndex(
+                (s) => s.id === currentStudent.id
+              );
+              const nextStudent = students[currentIndex + 1];
 
-        // Create a fallback for offline use
-        const existingData = await AsyncStorage.getItem("pendingSubmissions");
-        const pendingSubmissions = existingData ? JSON.parse(existingData) : [];
-
-        pendingSubmissions.push({
-          timestamp: new Date().toISOString(),
-          studentId: currentStudent.id,
-          assessmentId: assessment.id,
-          responses,
-          audioUri: audioFileUri,
-          audioUrl,
-          metadata,
-          metadataUrl,
-        });
-
-        await AsyncStorage.setItem(
-          "pendingSubmissions",
-          JSON.stringify(pendingSubmissions)
-        );
-
-        Alert.alert(
-          "Saved Locally",
-          "Could not reach server. Responses saved locally for later submission.",
-          [{ text: "OK", onPress: () => router.push("/Screens/assessments") }]
-        );
-      }
+              if (nextStudent) {
+                // Start assessment for next student
+                selectStudent(nextStudent);
+              } else {
+                // If no more students, show completion message
+                Alert.alert(
+                  "Assessment Complete",
+                  "All students have been assessed. You can upload the responses later from the Pending Uploads section.",
+                  [
+                    {
+                      text: "OK",
+                      onPress: () => router.push("/Screens/pendingUploads"),
+                    },
+                  ]
+                );
+              }
+            },
+          },
+        ]
+      );
     } catch (error) {
       console.error("Process error:", error);
       setIsSubmitting(false);
-      Alert.alert("Error", "Failed to process and submit responses");
-    } finally {
-      setIsSubmitting(false);
+      Alert.alert("Error", "Failed to save responses locally");
     }
   };
 
@@ -710,6 +667,36 @@ const TakeAssessment = () => {
   const goToPreviousQuestion = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
+  // Skip current student and move to next
+  const skipStudent = () => {
+    if (!currentStudent || !students) return;
+
+    const currentIndex = students.findIndex((s) => s.id === currentStudent.id);
+    const nextStudent = students[currentIndex + 1];
+
+    if (recording) {
+      recording.stopAndUnloadAsync().catch(console.error);
+    }
+
+    setCurrentQuestionIndex(0);
+    setQuestionTimestamps([]);
+    setQuestionCompleted(false);
+    setIsCompleted(false);
+    setAudioUri(null);
+    setRecording(null);
+    setIsRecording(false);
+
+    if (nextStudent) {
+      selectStudent(nextStudent);
+    } else {
+      Alert.alert(
+        "Assessment Complete",
+        "All students have been assessed. You can now go back.",
+        [{ text: "OK", onPress: () => router.back() }]
+      );
     }
   };
 
@@ -915,17 +902,6 @@ const TakeAssessment = () => {
         )}
 
         <View style={styles.navigationContainer}>
-          <TouchableOpacity
-            style={[
-              styles.navButton,
-              currentQuestionIndex === 0 ? styles.disabledButton : {},
-            ]}
-            onPress={goToPreviousQuestion}
-            disabled={currentQuestionIndex === 0 || isQuestionInProgress}
-          >
-            <Text style={styles.navButtonText}>Previous</Text>
-          </TouchableOpacity>
-
           {isCompleted ? (
             <TouchableOpacity
               style={[
@@ -942,16 +918,22 @@ const TakeAssessment = () => {
               )}
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                !questionCompleted ? styles.disabledButton : {},
-              ]}
-              onPress={goToNextQuestion}
-              disabled={!questionCompleted || isQuestionInProgress}
-            >
-              <Text style={styles.navButtonText}>Next</Text>
-            </TouchableOpacity>
+            <View style={styles.navButtonsContainer}>
+              <TouchableOpacity style={styles.skipButton} onPress={skipStudent}>
+                <Text style={styles.skipButtonText}>Skip Student</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.navButton,
+                  !questionCompleted ? styles.disabledButton : {},
+                ]}
+                onPress={goToNextQuestion}
+                disabled={!questionCompleted || isQuestionInProgress}
+              >
+                <Text style={styles.navButtonText}>Next</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </View>
@@ -1179,13 +1161,20 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  navButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    gap: 10,
   },
   navButton: {
     backgroundColor: Colors.surface,
     borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    minWidth: width * 0.3,
+    paddingHorizontal: 25,
+    paddingVertical: 15,
+    minWidth: width * 0.35,
     alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.border,
@@ -1195,14 +1184,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  disabledButton: {
-    opacity: 0.5,
+  skipButton: {
+    backgroundColor: "#FFA500",
+    borderRadius: 12,
+    paddingHorizontal: 25,
+    paddingVertical: 15,
+    minWidth: width * 0.35,
+    alignItems: "center",
+  },
+  skipButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
   submitButton: {
     backgroundColor: Colors.primary,
     borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 25,
+    paddingVertical: 15,
     minWidth: width * 0.6,
     alignItems: "center",
   },
@@ -1210,5 +1209,8 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
