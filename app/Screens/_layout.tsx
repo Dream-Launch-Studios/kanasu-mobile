@@ -34,6 +34,12 @@ export default function ScreensLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="pendingUploads"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }
