@@ -870,7 +870,7 @@ const TakeAssessment = () => {
                   style={styles.recordButton}
                   onPress={markQuestionStart}
                 >
-                  <Text style={styles.recordButtonText}>Start Question</Text>
+                  <Text style={styles.recordButtonText}>Start Question | ಪ್ರಶ್ನೆ ಪ್ರಾರಂಭಿಸಿ</Text>
                 </TouchableOpacity>
               )}
 
@@ -885,7 +885,7 @@ const TakeAssessment = () => {
                     style={styles.stopButton}
                     onPress={markQuestionEnd}
                   >
-                    <Text style={styles.stopButtonText}>End Question</Text>
+                    <Text style={styles.stopButtonText}>End Question | ಪ್ರಶ್ನೆ ಮುಗಿಸಿ</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -914,13 +914,13 @@ const TakeAssessment = () => {
               {isSubmitting ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.submitButtonText}>Finish & Submit</Text>
+                <Text style={styles.submitButtonText}>Finish & Submit | ಮುಗಿಸಿ & ಸಲ್ಲಿಸಿ</Text>
               )}
             </TouchableOpacity>
           ) : (
             <View style={styles.navButtonsContainer}>
               <TouchableOpacity style={styles.skipButton} onPress={skipStudent}>
-                <Text style={styles.skipButtonText}>Skip Student</Text>
+                <Text style={styles.skipButtonText}>Skip Student | ವಿದ್ಯಾರ್ಥಿಯನ್ನು ಬಿಟ್ಟುಬಿಡಿ</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -931,7 +931,7 @@ const TakeAssessment = () => {
                 onPress={goToNextQuestion}
                 disabled={!questionCompleted || isQuestionInProgress}
               >
-                <Text style={styles.navButtonText}>Next</Text>
+                <Text style={styles.navButtonText}>Next | ಮುಂದೆ</Text>
               </TouchableOpacity>
             </View>
           )}

@@ -275,7 +275,7 @@ const Home = () => {
               >
                 <Text style={styles.iconText}>📊</Text>
               </View>
-              <Text style={styles.itemTitle}>Assessments</Text>
+              <Text style={styles.itemTitle}>Assessments | ಮೌಲ್ಯಮಾಪನಗಳು</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -290,7 +290,7 @@ const Home = () => {
               >
                 <Text style={styles.iconText}>👥</Text>
               </View>
-              <Text style={styles.itemTitle}>Students</Text>
+              <Text style={styles.itemTitle}>Students | ವಿದ್ಯಾರ್ಥಿಗಳು</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -305,7 +305,9 @@ const Home = () => {
               >
                 <Text style={styles.iconText}>📤</Text>
               </View>
-              <Text style={styles.itemTitle}>Pending Uploads</Text>
+              <Text style={styles.itemTitle}>
+                Pending Uploads | ಬಾಕಿ ಅಪ್‌ಲೋಡ್‌ಗಳು
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.dashboardItem}>
@@ -317,7 +319,7 @@ const Home = () => {
               >
                 <Text style={styles.iconText}>⚙️</Text>
               </View>
-              <Text style={styles.itemTitle}>Settings</Text>
+              <Text style={styles.itemTitle}>Settings | ಸೆಟ್ಟಿಂಗ್‌ಗಳು</Text>
             </TouchableOpacity>
           </View>
 
@@ -358,7 +360,9 @@ const Home = () => {
                     style={styles.viewAllButton}
                     onPress={() => router.push("/Screens/students")}
                   >
-                    <Text style={styles.viewAllText}>View All Students</Text>
+                    <Text style={styles.viewAllText}>
+                      View All Students | ಎಲ್ಲಾ ವಿದ್ಯಾರ್ಥಿಗಳನ್ನು ವೀಕ್ಷಿಸಿ
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -366,7 +370,7 @@ const Home = () => {
           )}
 
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Logout</Text>
+            <Text style={styles.logoutText}>Logout | ಲಾಗ್‌ಔಟ್</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>

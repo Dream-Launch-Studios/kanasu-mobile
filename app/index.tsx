@@ -37,7 +37,7 @@ const Onboarding = () => {
             style={styles.gradientOverlay}
           />
           <Image
-            source={require("@/assets/images/teacher.png")}
+            source={require("@/assets/icon/teacher.png")}
             style={styles.animation}
             resizeMode="contain"
           />
@@ -62,7 +62,7 @@ const Onboarding = () => {
               onPress={() => router.push("/Screens/login")}
               activeOpacity={0.85}
             >
-              <Text style={styles.buttonText}>Get Started</Text>
+              <Text style={styles.buttonText}>Get Started | ಪ್ರಾರಂಭಿಸಿ</Text>
             </TouchableOpacity>
           </LinearGradient>
         </View>

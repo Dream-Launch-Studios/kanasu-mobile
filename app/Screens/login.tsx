@@ -214,7 +214,7 @@ const Login = () => {
                         {loading ? (
                           <ActivityIndicator color="#FFFFFF" size="small" />
                         ) : (
-                          <Text style={styles.buttonText}>Send OTP</Text>
+                          <Text style={styles.buttonText}>Send OTP | OTP ಕಳುಹಿಸಿ</Text>
                         )}
                       </TouchableOpacity>
                     </LinearGradient>
@@ -253,7 +253,7 @@ const Login = () => {
                         {loading ? (
                           <ActivityIndicator color="#FFFFFF" size="small" />
                         ) : (
-                          <Text style={styles.buttonText}>Verify OTP</Text>
+                          <Text style={styles.buttonText}>Verify OTP | OTP ಪರಿಶೀಲಿಸಿ</Text>
                         )}
                       </TouchableOpacity>
                     </LinearGradient>
@@ -269,8 +269,8 @@ const Login = () => {
                         ]}
                       >
                         {resendDisabled
-                          ? `Resend OTP in ${countdown}s`
-                          : "Resend OTP"}
+                          ? `Resend OTP in ${countdown}s | ${countdown}s ನಲ್ಲಿ ಮರುಕಳುಹಿಸಿ`
+                          : "Resend OTP | OTP ಮರುಕಳುಹಿಸಿ"}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -278,7 +278,7 @@ const Login = () => {
                       onPress={() => setIsOtpSent(false)}
                     >
                       <Text style={styles.changeNumberText}>
-                        Change Phone Number
+                        Change Phone Number | ಫೋನ್ ಸಂಖ್ಯೆ ಬದಲಾಯಿಸಿ
                       </Text>
                     </TouchableOpacity>
                   </>
