@@ -24,6 +24,15 @@ const Onboarding = () => {
         <View style={styles.header}>
           <Text style={styles.title}>Kanasu</Text>
           <View style={styles.titleUnderline} />
+          <View style={styles.poweredByDivider} />
+          <View style={styles.poweredByContainer}>
+            <Text style={styles.poweredByText}>Powered by</Text>
+            <Image
+              source={require("@/assets/images/logo.png")}
+              style={styles.companyLogo}
+              resizeMode="contain"
+            />
+          </View>
         </View>
 
         <View style={styles.animationWrapper}>
@@ -101,6 +110,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     marginTop: 6,
     borderRadius: 10,
+  },
+  poweredByDivider: {
+    width: width * 0.18,
+    height: 2,
+    backgroundColor: Colors.primary + '33',
+    borderRadius: 2,
+    marginTop: 18,
+    marginBottom: 2,
   },
   animationWrapper: {
     width: width * 0.85,
@@ -216,5 +233,32 @@ const styles = StyleSheet.create({
     fontSize: Math.min(18, width * 0.045),
     fontWeight: "700",
     letterSpacing: 0.6,
+  },
+  poweredByContainer: {
+    alignItems: "center",
+    backgroundColor: '#f7fafc',
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    marginTop: 6,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    gap: 2,
+  },
+  poweredByText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    fontWeight: "400",
+    opacity: 0.7,
+    marginBottom: 2,
+  },
+  companyLogo: {
+    width: width * 0.22,
+    height: width * 0.09,
+    marginTop: 2,
   },
 });
