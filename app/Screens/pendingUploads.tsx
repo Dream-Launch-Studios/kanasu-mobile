@@ -75,7 +75,11 @@ const PendingUploads = () => {
     let uploadError: string | null = null;
     try {
       // Validate response data
-      if (!response.audioUri || !response.timestamps || response.timestamps.length === 0) {
+      if (
+        !response.audioUri ||
+        !response.timestamps ||
+        response.timestamps.length === 0
+      ) {
         throw new Error("Invalid response data");
       }
 
@@ -142,13 +146,17 @@ const PendingUploads = () => {
 
         // Update the state to mark this response as uploaded
         const updatedResponses = pendingResponses.map((r) =>
-          r.studentId === response.studentId && r.assessmentId === response.assessmentId
+          r.studentId === response.studentId &&
+          r.assessmentId === response.assessmentId
             ? { ...r, status: "uploaded" as const }
             : r
         );
-        
+
         // Save to AsyncStorage
-        await AsyncStorage.setItem("pendingResponses", JSON.stringify(updatedResponses));
+        await AsyncStorage.setItem(
+          "pendingResponses",
+          JSON.stringify(updatedResponses)
+        );
         setPendingResponses(updatedResponses);
 
         Alert.alert("Success", "Response uploaded successfully");
@@ -165,11 +173,19 @@ const PendingUploads = () => {
       );
       // Update the status of the failed response
       const updatedResponses = pendingResponses.map((r) =>
-        r.studentId === response.studentId && r.assessmentId === response.assessmentId
-          ? { ...r, status: "pending" as const, error: uploadError || undefined }
+        r.studentId === response.studentId &&
+        r.assessmentId === response.assessmentId
+          ? {
+              ...r,
+              status: "pending" as const,
+              error: uploadError || undefined,
+            }
           : r
       );
-      await AsyncStorage.setItem("pendingResponses", JSON.stringify(updatedResponses));
+      await AsyncStorage.setItem(
+        "pendingResponses",
+        JSON.stringify(updatedResponses)
+      );
       setPendingResponses(updatedResponses);
     }
   };
@@ -285,7 +301,7 @@ const PendingUploads = () => {
         style={styles.clearAllButton}
         onPress={clearPendingResponses}
       >
-        <Text style={styles.clearAllButtonText}>Clear All</Text>
+        <Text style={styles.clearAllButtonText}>Clear All | ಎಲ್ಲಾ ತೆರವುಗೊಳಿಸಿ</Text>
       </TouchableOpacity>
 
       {pendingResponses.length === 0 ? (
@@ -302,7 +318,7 @@ const PendingUploads = () => {
             {uploading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.uploadAllButtonText}>Upload All</Text>
+              <Text style={styles.uploadAllButtonText}>Upload All | ಎಲ್ಲಾ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ</Text>
             )}
           </TouchableOpacity>
 
@@ -342,7 +358,7 @@ const PendingUploads = () => {
                       style={styles.uploadButton}
                       onPress={() => uploadResponse(response)}
                     >
-                      <Text style={styles.uploadButtonText}>Upload</Text>
+                      <Text style={styles.uploadButtonText}>Upload | ಅಪ್‌ಲೋಡ್ ಮಾಡಿ</Text>
                     </TouchableOpacity>
                   )}
                 </View>

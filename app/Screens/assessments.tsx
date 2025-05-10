@@ -176,7 +176,7 @@ const Assessments = () => {
           style={styles.startButton}
           onPress={() => router.push(`/Screens/takeAssessment?id=${item.id}`)}
         >
-          <Text style={styles.startButtonText}>Start Assessment</Text>
+          <Text style={styles.startButtonText}>Start Assessment | ಮೌಲ್ಯಮಾಪನ ಪ್ರಾರಂಭಿಸಿ</Text>
         </TouchableOpacity>
       </TouchableOpacity>
     );
