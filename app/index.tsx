@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   poweredByDivider: {
     width: width * 0.18,
     height: 2,
-    backgroundColor: Colors.primary + '33',
+    backgroundColor: Colors.primary + "33",
     borderRadius: 2,
     marginTop: 18,
     marginBottom: 2,
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   },
   poweredByContainer: {
     alignItems: "center",
-    backgroundColor: '#f7fafc',
+    backgroundColor: "#f7fafc",
     borderRadius: 14,
     paddingVertical: 8,
     paddingHorizontal: 18,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   poweredByText: {
     fontSize: 12,
     color: Colors.textSecondary,
-    fontStyle: 'italic',
+    fontStyle: "italic",
     fontWeight: "400",
     opacity: 0.7,
     marginBottom: 2,
