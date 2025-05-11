@@ -12,6 +12,7 @@ import {
   ScrollView,
   Image,
   Platform,
+  Modal,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Colors from "@/constants/Colors";
@@ -93,6 +94,9 @@ const TakeAssessment = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Bottom sheet state
+  const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false);
 
   // Initialize with assessment data and students
   useEffect(() => {
@@ -211,7 +215,7 @@ const TakeAssessment = () => {
   const startCountdown = () => {
     setIsCountingDown(true);
     setCountdownValue(3);
-    
+
     const countdownInterval = setInterval(() => {
       setCountdownValue((prev) => {
         if (prev <= 1) {
@@ -589,6 +593,23 @@ const TakeAssessment = () => {
     }
   };
 
+  // Show bottom sheet instead of alert
+  const handleSubmitPress = () => {
+    setShowSubmitConfirmation(true);
+  };
+
+  // Handle confirmation from bottom sheet
+  const handleSubmitConfirm = async () => {
+    setShowSubmitConfirmation(false);
+    // Call the actual submit function
+    await submitResponses();
+  };
+
+  // Handle cancellation from bottom sheet
+  const handleSubmitCancel = () => {
+    setShowSubmitConfirmation(false);
+  };
+
   // Submit all responses to the backend
   const submitResponses = async () => {
     if (!currentStudent || !assessment) {
@@ -640,54 +661,38 @@ const TakeAssessment = () => {
         JSON.stringify(pendingResponses)
       );
 
-      // Show success message with option to view pending uploads
-      Alert.alert(
-        "Response Saved",
-        "The response has been saved locally and will be uploaded later. You can view and upload it from the Pending Uploads section.",
-        [
-          {
-            text: "View Pending Uploads",
-            onPress: () => router.push("/Screens/pendingUploads"),
-          },
-          {
-            text: "Continue",
-            onPress: () => {
-              // Reset state for next student
-              setCurrentQuestionIndex(0);
-              setQuestionTimestamps([]);
-              setQuestionCompleted(false);
-              setIsCompleted(false);
-              setIsSubmitting(false);
-              setAudioUri(null);
-              setRecording(null);
-              setIsRecording(false);
+      // Reset state for next student
+      setCurrentQuestionIndex(0);
+      setQuestionTimestamps([]);
+      setQuestionCompleted(false);
+      setIsCompleted(false);
+      setIsSubmitting(false);
+      setAudioUri(null);
+      setRecording(null);
+      setIsRecording(false);
 
-              // Find the next student in the list
-              const currentIndex = students.findIndex(
-                (s) => s.id === currentStudent.id
-              );
-              const nextStudent = students[currentIndex + 1];
-
-              if (nextStudent) {
-                // Start assessment for next student
-                selectStudent(nextStudent);
-              } else {
-                // If no more students, show completion message
-                Alert.alert(
-                  "Assessment Complete",
-                  "All students have been assessed. You can upload the responses later from the Pending Uploads section.",
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => router.push("/Screens/pendingUploads"),
-                    },
-                  ]
-                );
-              }
-            },
-          },
-        ]
+      // Find the next student in the list
+      const currentIndex = students.findIndex(
+        (s) => s.id === currentStudent.id
       );
+      const nextStudent = students[currentIndex + 1];
+
+      if (nextStudent) {
+        // Start assessment for next student
+        selectStudent(nextStudent);
+      } else {
+        // If no more students, show completion message
+        Alert.alert(
+          "Assessment Complete",
+          "All students have been assessed. You can upload the responses later from the Pending Uploads section.",
+          [
+            {
+              text: "OK",
+              onPress: () => router.push("/Screens/pendingUploads"),
+            },
+          ]
+        );
+      }
     } catch (error) {
       console.error("Process error:", error);
       setIsSubmitting(false);
@@ -1112,7 +1117,7 @@ const TakeAssessment = () => {
                 styles.submitButton,
                 isSubmitting ? styles.disabledButton : {},
               ]}
-              onPress={submitResponses}
+              onPress={handleSubmitPress}
               disabled={isSubmitting}
             >
               {isSubmitting ? (
@@ -1145,6 +1150,44 @@ const TakeAssessment = () => {
           )}
         </View>
       </View>
+
+      {/* Bottom Sheet Confirmation */}
+      <Modal
+        visible={showSubmitConfirmation}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleSubmitCancel}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={handleSubmitCancel}
+        >
+          <View style={styles.bottomSheet}>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={styles.bottomSheetTitle}>
+              Are you sure you want to submit the response?
+            </Text>
+            <Text style={styles.bottomSheetSubtext}>
+              Once submitted, you move onto next student.
+            </Text>
+            <View style={styles.bottomSheetButtons}>
+              <TouchableOpacity
+                style={styles.bottomSheetCancelButton}
+                onPress={handleSubmitCancel}
+              >
+                <Text style={styles.bottomSheetCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.bottomSheetConfirmButton}
+                onPress={handleSubmitConfirm}
+              >
+                <Text style={styles.bottomSheetConfirmText}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1345,16 +1388,16 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.error,
+    backgroundColor: Colors.success,
     marginRight: 8,
   },
   recordingText: {
     fontSize: 16,
-    color: Colors.error,
+    color: Colors.success,
     fontWeight: "600",
   },
   stopButton: {
-    backgroundColor: Colors.error,
+    backgroundColor: Colors.success,
     borderRadius: 30,
     paddingHorizontal: 30,
     paddingVertical: 15,
@@ -1437,12 +1480,12 @@ const styles = StyleSheet.create({
   countdownOverlay: {
     flex: 1,
     backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   countdownTitle: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.textPrimary,
     marginBottom: 50,
   },
@@ -1450,13 +1493,76 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: Colors.primary + '30',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: Colors.primary + "30",
+    justifyContent: "center",
+    alignItems: "center",
   },
   countdownNumber: {
     fontSize: 100,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: Colors.textPrimary,
+  },
+  // Bottom sheet styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 5,
+    backgroundColor: Colors.border,
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  bottomSheetTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 10,
+  },
+  bottomSheetSubtext: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    marginBottom: 25,
+  },
+  bottomSheetButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  bottomSheetCancelButton: {
+    flex: 1,
+    padding: 15,
+    marginRight: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  bottomSheetCancelText: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  bottomSheetConfirmButton: {
+    flex: 1,
+    padding: 15,
+    marginLeft: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+  },
+  bottomSheetConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
