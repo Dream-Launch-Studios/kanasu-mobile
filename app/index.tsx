@@ -28,7 +28,7 @@ const Onboarding = () => {
           <View style={styles.poweredByContainer}>
             <Text style={styles.poweredByText}>Powered by</Text>
             <Image
-              source={require("@/assets/images/comapny-logo.png")}
+              source={require("@/assets/images/logo.png")}
               style={styles.companyLogo}
               resizeMode="contain"
             />
