@@ -11,6 +11,8 @@ import {
   Alert,
   ScrollView,
   Image,
+  Platform,
+  Modal,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Colors from "@/constants/Colors";
@@ -18,6 +20,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "@/constants/api";
 import { Audio } from "expo-av";
+import { Ionicons } from "@expo/vector-icons";
 
 const { width, height } = Dimensions.get("window");
 
@@ -27,6 +30,7 @@ interface Question {
   imageUrl?: string;
   questionType: string;
   options?: any[];
+  audioUrl?: string;
 }
 
 interface Topic {
@@ -70,6 +74,8 @@ const TakeAssessment = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
 
   // Continuous recording state
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
@@ -80,10 +86,17 @@ const TakeAssessment = () => {
     QuestionTimestamp[]
   >([]);
 
+  // Countdown state
+  const [isCountingDown, setIsCountingDown] = useState(false);
+  const [countdownValue, setCountdownValue] = useState(3);
+
   const [questionCompleted, setQuestionCompleted] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Bottom sheet state
+  const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false);
 
   // Initialize with assessment data and students
   useEffect(() => {
@@ -99,6 +112,21 @@ const TakeAssessment = () => {
           questions.push(...topic.questions);
         }
       });
+      console.log(
+        "All Questions Data:",
+        questions.map((q) => ({
+          id: q.id,
+          text: q.text,
+          imageUrl: q.imageUrl,
+          questionType: q.questionType,
+          options: q.options,
+          audioUrl: q.audioUrl,
+        }))
+      );
+      console.log(
+        "Audio URLs for all questions:",
+        questions.map((q) => q.audioUrl)
+      );
       setAllQuestions(questions);
       if (questions.length > 0) {
         setCurrentQuestion(questions[0]);
@@ -109,7 +137,17 @@ const TakeAssessment = () => {
   // Update current question when index changes
   useEffect(() => {
     if (allQuestions.length > 0 && currentQuestionIndex < allQuestions.length) {
-      setCurrentQuestion(allQuestions[currentQuestionIndex]);
+      const newQuestion = allQuestions[currentQuestionIndex];
+      console.log("Current Question Data:", {
+        id: newQuestion.id,
+        text: newQuestion.text,
+        imageUrl: newQuestion.imageUrl,
+        questionType: newQuestion.questionType,
+        options: newQuestion.options,
+        audioUrl: newQuestion.audioUrl,
+      });
+      console.log("Audio URL for current question:", newQuestion.audioUrl);
+      setCurrentQuestion(newQuestion);
       setQuestionCompleted(false);
     }
   }, [currentQuestionIndex, allQuestions]);
@@ -169,8 +207,27 @@ const TakeAssessment = () => {
     setQuestionTimestamps([]);
     setQuestionCompleted(false);
 
-    // Start recording for this student
-    startFullRecording();
+    // Start countdown before recording
+    startCountdown();
+  };
+
+  // Start countdown, then start recording
+  const startCountdown = () => {
+    setIsCountingDown(true);
+    setCountdownValue(3);
+
+    const countdownInterval = setInterval(() => {
+      setCountdownValue((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          setIsCountingDown(false);
+          // Start recording after countdown
+          startFullRecording();
+          return 3; // Reset for next time
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   // Start recording for the entire assessment
@@ -536,6 +593,23 @@ const TakeAssessment = () => {
     }
   };
 
+  // Show bottom sheet instead of alert
+  const handleSubmitPress = () => {
+    setShowSubmitConfirmation(true);
+  };
+
+  // Handle confirmation from bottom sheet
+  const handleSubmitConfirm = async () => {
+    setShowSubmitConfirmation(false);
+    // Call the actual submit function
+    await submitResponses();
+  };
+
+  // Handle cancellation from bottom sheet
+  const handleSubmitCancel = () => {
+    setShowSubmitConfirmation(false);
+  };
+
   // Submit all responses to the backend
   const submitResponses = async () => {
     if (!currentStudent || !assessment) {
@@ -587,54 +661,38 @@ const TakeAssessment = () => {
         JSON.stringify(pendingResponses)
       );
 
-      // Show success message with option to view pending uploads
-      Alert.alert(
-        "Response Saved",
-        "The response has been saved locally and will be uploaded later. You can view and upload it from the Pending Uploads section.",
-        [
-          {
-            text: "View Pending Uploads",
-            onPress: () => router.push("/Screens/pendingUploads"),
-          },
-          {
-            text: "Continue",
-            onPress: () => {
-              // Reset state for next student
-              setCurrentQuestionIndex(0);
-              setQuestionTimestamps([]);
-              setQuestionCompleted(false);
-              setIsCompleted(false);
-              setIsSubmitting(false);
-              setAudioUri(null);
-              setRecording(null);
-              setIsRecording(false);
+      // Reset state for next student
+      setCurrentQuestionIndex(0);
+      setQuestionTimestamps([]);
+      setQuestionCompleted(false);
+      setIsCompleted(false);
+      setIsSubmitting(false);
+      setAudioUri(null);
+      setRecording(null);
+      setIsRecording(false);
 
-              // Find the next student in the list
-              const currentIndex = students.findIndex(
-                (s) => s.id === currentStudent.id
-              );
-              const nextStudent = students[currentIndex + 1];
-
-              if (nextStudent) {
-                // Start assessment for next student
-                selectStudent(nextStudent);
-              } else {
-                // If no more students, show completion message
-                Alert.alert(
-                  "Assessment Complete",
-                  "All students have been assessed. You can upload the responses later from the Pending Uploads section.",
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => router.push("/Screens/pendingUploads"),
-                    },
-                  ]
-                );
-              }
-            },
-          },
-        ]
+      // Find the next student in the list
+      const currentIndex = students.findIndex(
+        (s) => s.id === currentStudent.id
       );
+      const nextStudent = students[currentIndex + 1];
+
+      if (nextStudent) {
+        // Start assessment for next student
+        selectStudent(nextStudent);
+      } else {
+        // If no more students, show completion message
+        Alert.alert(
+          "Assessment Complete",
+          "All students have been assessed. You can upload the responses later from the Pending Uploads section.",
+          [
+            {
+              text: "OK",
+              onPress: () => router.push("/Screens/pendingUploads"),
+            },
+          ]
+        );
+      }
     } catch (error) {
       console.error("Process error:", error);
       setIsSubmitting(false);
@@ -700,6 +758,118 @@ const TakeAssessment = () => {
     }
   };
 
+  // Play audio function
+  const playQuestionAudio = async () => {
+    if (!currentQuestion?.audioUrl) {
+      console.log("No audio URL available for this question");
+      Alert.alert("Audio Error", "No audio available for this question");
+      return;
+    }
+
+    try {
+      console.log(
+        "Attempting to play audio from URL:",
+        currentQuestion.audioUrl
+      );
+
+      // Stop previous audio if playing
+      if (sound) {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+        setSound(null);
+      }
+
+      // Set audio mode first to ensure playback works
+      console.log("Setting audio mode for playback");
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        interruptionModeIOS: 1, // DoNotMix
+        interruptionModeAndroid: 1, // DoNotMix
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
+      });
+
+      setIsAudioPlaying(true);
+
+      // Try to create and load the sound with higher volume
+      console.log("Creating new sound object");
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: currentQuestion.audioUrl },
+        { shouldPlay: true, volume: 1.0, progressUpdateIntervalMillis: 100 }
+      );
+
+      setSound(newSound);
+
+      // Make sure the volume is at maximum
+      await newSound.setVolumeAsync(1.0);
+
+      // Listen for playback status updates with improved logging
+      newSound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded) {
+          console.log(
+            "Audio playback status:",
+            status.isPlaying ? "Playing" : "Paused",
+            "Position:",
+            status.positionMillis,
+            "Duration:",
+            status.durationMillis,
+            "Volume:",
+            status.volume
+          );
+
+          if (status.didJustFinish) {
+            console.log("Audio playback finished");
+            setIsAudioPlaying(false);
+            newSound.unloadAsync();
+          }
+        } else if (status.error) {
+          console.error("Audio playback error:", status.error);
+          setIsAudioPlaying(false);
+          Alert.alert("Audio Error", `Playback error: ${status.error}`);
+        }
+      });
+
+      // Confirm audio is playing
+      console.log("Audio should be playing now");
+    } catch (error: any) {
+      console.error("Error playing audio:", error);
+      setIsAudioPlaying(false);
+      Alert.alert(
+        "Audio Error",
+        `Failed to play the audio: ${error.message || "Unknown error"}`
+      );
+
+      // Additional diagnostics
+      console.log(
+        "Audio URL format:",
+        currentQuestion.audioUrl
+          ? currentQuestion.audioUrl.substring(0, 30) + "..."
+          : "null"
+      );
+      console.log("Device info:", Platform.OS, Platform.Version);
+    }
+  };
+
+  // Clean up audio when component unmounts
+  useEffect(() => {
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, [sound]);
+
+  // Clean up audio when current question changes
+  useEffect(() => {
+    if (sound) {
+      sound.unloadAsync();
+      setSound(null);
+      setIsAudioPlaying(false);
+    }
+  }, [currentQuestionIndex]);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -710,6 +880,24 @@ const TakeAssessment = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Loading assessment...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Render countdown overlay if counting down
+  if (isCountingDown && currentStudent) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={Colors.background}
+        />
+        <View style={styles.countdownOverlay}>
+          <Text style={styles.countdownTitle}>Recording starts in</Text>
+          <View style={styles.countdownCircle}>
+            <Text style={styles.countdownNumber}>{countdownValue}</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -854,7 +1042,24 @@ const TakeAssessment = () => {
 
         {currentQuestion && (
           <View style={styles.questionContainer}>
-            <Text style={styles.questionText}>{currentQuestion.text}</Text>
+            <View style={styles.questionHeader}>
+              <Text style={styles.questionText}>{currentQuestion.text}</Text>
+              {currentQuestion.audioUrl && (
+                <TouchableOpacity
+                  style={styles.audioButton}
+                  onPress={playQuestionAudio}
+                  disabled={isAudioPlaying}
+                >
+                  <Ionicons
+                    name={isAudioPlaying ? "volume-high" : "volume-medium"}
+                    size={24}
+                    color={
+                      isAudioPlaying ? Colors.primary : Colors.textSecondary
+                    }
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
             {currentQuestion.imageUrl && (
               <View>
                 <Image
@@ -870,7 +1075,9 @@ const TakeAssessment = () => {
                   style={styles.recordButton}
                   onPress={markQuestionStart}
                 >
-                  <Text style={styles.recordButtonText}>Start Question | ಪ್ರಶ್ನೆ ಪ್ರಾರಂಭಿಸಿ</Text>
+                  <Text style={styles.recordButtonText}>
+                    Start Question | ಪ್ರಶ್ನೆ ಪ್ರಾರಂಭಿಸಿ
+                  </Text>
                 </TouchableOpacity>
               )}
 
@@ -885,7 +1092,9 @@ const TakeAssessment = () => {
                     style={styles.stopButton}
                     onPress={markQuestionEnd}
                   >
-                    <Text style={styles.stopButtonText}>End Question | ಪ್ರಶ್ನೆ ಮುಗಿಸಿ</Text>
+                    <Text style={styles.stopButtonText}>
+                      End Question | ಪ್ರಶ್ನೆ ಮುಗಿಸಿ
+                    </Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -908,19 +1117,23 @@ const TakeAssessment = () => {
                 styles.submitButton,
                 isSubmitting ? styles.disabledButton : {},
               ]}
-              onPress={submitResponses}
+              onPress={handleSubmitPress}
               disabled={isSubmitting}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.submitButtonText}>Finish & Submit | ಮುಗಿಸಿ & ಸಲ್ಲಿಸಿ</Text>
+                <Text style={styles.submitButtonText}>
+                  Finish & Submit | ಮುಗಿಸಿ & ಸಲ್ಲಿಸಿ
+                </Text>
               )}
             </TouchableOpacity>
           ) : (
             <View style={styles.navButtonsContainer}>
               <TouchableOpacity style={styles.skipButton} onPress={skipStudent}>
-                <Text style={styles.skipButtonText}>Skip Student | ವಿದ್ಯಾರ್ಥಿಯನ್ನು ಬಿಟ್ಟುಬಿಡಿ</Text>
+                <Text style={styles.skipButtonText}>
+                  Skip | ಸ್ಕಿಪ್
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -937,6 +1150,44 @@ const TakeAssessment = () => {
           )}
         </View>
       </View>
+
+      {/* Bottom Sheet Confirmation */}
+      <Modal
+        visible={showSubmitConfirmation}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleSubmitCancel}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={handleSubmitCancel}
+        >
+          <View style={styles.bottomSheet}>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={styles.bottomSheetTitle}>
+              Are you sure you want to submit the response?
+            </Text>
+            <Text style={styles.bottomSheetSubtext}>
+              Once submitted, you move onto next student.
+            </Text>
+            <View style={styles.bottomSheetButtons}>
+              <TouchableOpacity
+                style={styles.bottomSheetCancelButton}
+                onPress={handleSubmitCancel}
+              >
+                <Text style={styles.bottomSheetCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.bottomSheetConfirmButton}
+                onPress={handleSubmitConfirm}
+              >
+                <Text style={styles.bottomSheetConfirmText}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1086,12 +1337,25 @@ const styles = StyleSheet.create({
     padding: width * 0.05,
     marginTop: 20,
   },
+  questionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 30,
+  },
   questionText: {
+    flex: 1,
     fontSize: 18,
     fontWeight: "600",
     color: Colors.textPrimary,
-    marginBottom: 30,
     lineHeight: 28,
+  },
+  audioButton: {
+    padding: 10,
+    marginLeft: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   recordingContainer: {
     flex: 1,
@@ -1124,16 +1388,16 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.error,
+    backgroundColor: Colors.success,
     marginRight: 8,
   },
   recordingText: {
     fontSize: 16,
-    color: Colors.error,
+    color: Colors.success,
     fontWeight: "600",
   },
   stopButton: {
-    backgroundColor: Colors.error,
+    backgroundColor: Colors.success,
     borderRadius: 30,
     paddingHorizontal: 30,
     paddingVertical: 15,
@@ -1172,9 +1436,9 @@ const styles = StyleSheet.create({
   navButton: {
     backgroundColor: Colors.surface,
     borderRadius: 12,
-    paddingHorizontal: 25,
+    paddingHorizontal: 20,
     paddingVertical: 15,
-    minWidth: width * 0.35,
+    flex: 1,
     alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.border,
@@ -1187,9 +1451,9 @@ const styles = StyleSheet.create({
   skipButton: {
     backgroundColor: "#FFA500",
     borderRadius: 12,
-    paddingHorizontal: 25,
+    paddingHorizontal: 20,
     paddingVertical: 15,
-    minWidth: width * 0.35,
+    flex: 1,
     alignItems: "center",
   },
   skipButtonText: {
@@ -1212,5 +1476,93 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  countdownOverlay: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  countdownTitle: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: Colors.textPrimary,
+    marginBottom: 50,
+  },
+  countdownCircle: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: Colors.primary + "30",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  countdownNumber: {
+    fontSize: 100,
+    fontWeight: "bold",
+    color: Colors.textPrimary,
+  },
+  // Bottom sheet styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 5,
+    backgroundColor: Colors.border,
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  bottomSheetTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 10,
+  },
+  bottomSheetSubtext: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    marginBottom: 25,
+  },
+  bottomSheetButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  bottomSheetCancelButton: {
+    flex: 1,
+    padding: 15,
+    marginRight: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  bottomSheetCancelText: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  bottomSheetConfirmButton: {
+    flex: 1,
+    padding: 15,
+    marginLeft: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+  },
+  bottomSheetConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

@@ -88,6 +88,9 @@ const Login = () => {
   };
 
   const handleOtpChange = (text: string, index: number) => {
+    // Only allow numbers
+    if (!/^\d*$/.test(text)) return;
+
     const newOtp = [...otp];
     newOtp[index] = text;
     setOtp(newOtp);
@@ -113,32 +116,30 @@ const Login = () => {
         otp: enteredOtp,
       });
 
+      if (!response.data.token) {
+        throw new Error("No authentication token received");
+      }
+
       console.log("OTP verification successful, saving data...");
 
-      // Store the authentication token and anganwadi data
+      // Store the authentication token
       await AsyncStorage.setItem("authToken", response.data.token);
 
-      // Log what we received to help with debugging
-      console.log("Response data keys:", Object.keys(response.data));
-
-      // Store anganwadi ID for future API calls
+      // Store anganwadi ID if available
       if (response.data.anganwadi?.id) {
-        console.log("Storing anganwadi ID:", response.data.anganwadi.id);
         await AsyncStorage.setItem("anganwadiId", response.data.anganwadi.id);
       }
 
-      // Store teacher data
+      // Store teacher data if available
       if (response.data.teacher) {
-        console.log("Storing teacher data");
         await AsyncStorage.setItem(
           "teacherData",
           JSON.stringify(response.data.teacher)
         );
       }
 
-      // Store basic anganwadi data returned from login
+      // Store anganwadi data if available
       if (response.data.anganwadi) {
-        console.log("Storing anganwadi data from login response");
         await AsyncStorage.setItem(
           "anganwadiData",
           JSON.stringify(response.data.anganwadi)
@@ -148,13 +149,26 @@ const Login = () => {
       // Navigate to home screen
       router.push("/Screens/home");
     } catch (error: any) {
-      if (axios.isAxiosError(error) && error.response) {
-        Alert.alert(
-          "Verification Failed",
-          error.response.data.error || "Invalid OTP"
-        );
+      console.error("OTP verification error:", error);
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          Alert.alert(
+            "Verification Failed",
+            error.response.data.error || "Invalid OTP. Please try again."
+          );
+        } else if (error.request) {
+          Alert.alert(
+            "Network Error",
+            "Unable to reach the server. Please check your internet connection."
+          );
+        } else {
+          Alert.alert(
+            "Error",
+            "An unexpected error occurred. Please try again."
+          );
+        }
       } else {
-        Alert.alert("Error", "Network error. Please try again.");
+        Alert.alert("Error", "An unexpected error occurred. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -214,7 +228,9 @@ const Login = () => {
                         {loading ? (
                           <ActivityIndicator color="#FFFFFF" size="small" />
                         ) : (
-                          <Text style={styles.buttonText}>Send OTP | OTP ಕಳುಹಿಸಿ</Text>
+                          <Text style={styles.buttonText}>
+                            Send OTP | OTP ಕಳುಹಿಸಿ
+                          </Text>
                         )}
                       </TouchableOpacity>
                     </LinearGradient>
@@ -253,7 +269,9 @@ const Login = () => {
                         {loading ? (
                           <ActivityIndicator color="#FFFFFF" size="small" />
                         ) : (
-                          <Text style={styles.buttonText}>Verify OTP | OTP ಪರಿಶೀಲಿಸಿ</Text>
+                          <Text style={styles.buttonText}>
+                            Verify OTP | OTP ಪರಿಶೀಲಿಸಿ
+                          </Text>
                         )}
                       </TouchableOpacity>
                     </LinearGradient>

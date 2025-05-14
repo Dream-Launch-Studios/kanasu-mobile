@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -15,6 +16,7 @@ import { API_URL } from "@/constants/api";
 import Colors from "@/constants/Colors";
 import { Audio } from "expo-av";
 import { clearAllStorage } from "../utils/clearStorage";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface PendingResponse {
   studentId: string;
@@ -282,99 +284,116 @@ const PendingUploads = () => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Pending Uploads</Text>
-      </View>
-
-      <TouchableOpacity
-        style={styles.clearAllButton}
-        onPress={clearPendingResponses}
-      >
-        <Text style={styles.clearAllButtonText}>Clear All | ಎಲ್ಲಾ ತೆರವುಗೊಳಿಸಿ</Text>
-      </TouchableOpacity>
-
-      {pendingResponses.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No pending uploads</Text>
-        </View>
-      ) : (
-        <>
-          <TouchableOpacity
-            style={styles.uploadAllButton}
-            onPress={uploadAllResponses}
-            disabled={uploading}
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButtonContainer}
+            onPress={() => router.back()}
           >
-            {uploading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.uploadAllButtonText}>Upload All | ಎಲ್ಲಾ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ</Text>
-            )}
+            <Text style={styles.backButton}>←</Text>
           </TouchableOpacity>
+          <Text style={styles.title}>Pending Uploads</Text>
+        </View>
 
-          <ScrollView style={styles.listContainer}>
-            {pendingResponses.map((response, index) => (
-              <View
-                key={`${response.studentId}-${response.assessmentId}`}
-                style={styles.responseCard}
-              >
-                <View style={styles.responseHeader}>
-                  <Text style={styles.studentName}>{response.studentName}</Text>
-                  <Text style={styles.assessmentName}>
-                    {response.assessmentName}
-                  </Text>
-                </View>
-                <Text style={styles.recordedAt}>
-                  Recorded: {new Date(response.recordedAt).toLocaleString()}
-                </Text>
-                <View style={styles.statusContainer}>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor:
-                          response.status === "uploaded"
-                            ? Colors.success
-                            : Colors.warning,
-                      },
-                    ]}
-                  >
-                    <Text style={styles.statusText}>
-                      {response.status === "uploaded" ? "Uploaded" : "Pending"}
+        <TouchableOpacity
+          style={styles.clearAllButton}
+          onPress={clearPendingResponses}
+        >
+          <Text style={styles.clearAllButtonText}>Clear All | ಎಲ್ಲಾ ತೆರವುಗೊಳಿಸಿ</Text>
+        </TouchableOpacity>
+
+        {pendingResponses.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No pending uploads</Text>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.uploadAllButton}
+              onPress={uploadAllResponses}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.uploadAllButtonText}>Upload All | ಎಲ್ಲಾ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ</Text>
+              )}
+            </TouchableOpacity>
+
+            <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
+              {pendingResponses.map((response, index) => (
+                <View
+                  key={`${response.studentId}-${response.assessmentId}`}
+                  style={styles.responseCard}
+                >
+                  <View style={styles.responseHeader}>
+                    <Text style={styles.studentName}>{response.studentName}</Text>
+                    <Text style={styles.assessmentName}>
+                      {response.assessmentName}
                     </Text>
                   </View>
-                  {response.status === "pending" && (
-                    <TouchableOpacity
-                      style={styles.uploadButton}
-                      onPress={() => uploadResponse(response)}
+                  <Text style={styles.recordedAt}>
+                    Recorded: {new Date(response.recordedAt).toLocaleString()}
+                  </Text>
+                  <View style={styles.statusContainer}>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        {
+                          backgroundColor:
+                            response.status === "uploaded"
+                              ? Colors.success
+                              : Colors.warning,
+                        },
+                      ]}
                     >
-                      <Text style={styles.uploadButtonText}>Upload | ಅಪ್‌ಲೋಡ್ ಮಾಡಿ</Text>
-                    </TouchableOpacity>
-                  )}
+                      <Text style={styles.statusText}>
+                        {response.status === "uploaded" ? "Uploaded" : "Pending"}
+                      </Text>
+                    </View>
+                    {response.status === "pending" && (
+                      <TouchableOpacity
+                        style={styles.uploadButton}
+                        onPress={() => uploadResponse(response)}
+                      >
+                        <Text style={styles.uploadButtonText}>Upload | ಅಪ್‌ಲೋಡ್ ಮಾಡಿ</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-              </View>
-            ))}
-          </ScrollView>
-        </>
-      )}
-    </View>
+              ))}
+              <View style={styles.bottomPadding} />
+            </ScrollView>
+          </>
+        )}
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: "row",
@@ -382,6 +401,21 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  backButtonContainer: {
+    padding: 8,
   },
   backButton: {
     fontSize: 24,
@@ -408,6 +442,17 @@ const styles = StyleSheet.create({
     margin: 16,
     borderRadius: 12,
     alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   uploadAllButtonText: {
     color: "#FFFFFF",
@@ -416,15 +461,26 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
   },
   responseCard: {
     backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
+    marginVertical: 8,
     borderWidth: 1,
     borderColor: Colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   responseHeader: {
     marginBottom: 8,
@@ -464,6 +520,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   uploadButtonText: {
     color: "#FFFFFF",
@@ -474,14 +541,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF4D4F",
     padding: 16,
     marginHorizontal: 16,
-    marginTop: 8,
+    marginTop: 16,
+    marginBottom: 8,
     borderRadius: 12,
     alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   clearAllButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  bottomPadding: {
+    height: 20,
   },
 });
 
