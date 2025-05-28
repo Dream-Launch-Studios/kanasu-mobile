@@ -310,7 +310,10 @@ const Home = () => {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.dashboardItem}>
+            <TouchableOpacity
+              style={styles.dashboardItem}
+              onPress={() => router.push("/Screens/settings")}
+            >
               <View
                 style={[
                   styles.iconContainer,

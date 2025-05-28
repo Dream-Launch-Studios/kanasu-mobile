@@ -13,9 +13,26 @@ import Colors from "@/constants/Colors";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 const { width, height } = Dimensions.get("window");
 
 const Onboarding = () => {
+  useEffect(() => {
+    const checkAuthToken = async () => {
+      try {
+        const authToken = await AsyncStorage.getItem("authToken");
+        if (authToken) {
+          // If authToken exists, redirect to home page
+          router.replace("/Screens/home");
+        }
+      } catch (error) {
+        console.error("Error checking auth token:", error);
+      }
+    };
+
+    checkAuthToken();
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
