@@ -40,6 +40,12 @@ export default function ScreensLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="settings"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

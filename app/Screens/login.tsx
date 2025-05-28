@@ -120,6 +120,9 @@ const Login = () => {
         throw new Error("No authentication token received");
       }
 
+      console.log("Authentication Token:", response.data.token);
+      console.log("Full response data:", response.data);
+
       console.log("OTP verification successful, saving data...");
 
       // Store the authentication token
