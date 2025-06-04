@@ -21,6 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "@/constants/api";
 import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
+import { getQuestionMedia } from "../utils/mediaStorage";
 
 const { width, height } = Dimensions.get("window");
 
@@ -28,9 +29,8 @@ interface Question {
   id: string;
   text: string;
   imageUrl?: string;
-  questionType: string;
-  options?: any[];
   audioUrl?: string;
+  answerOptions?: string[];
 }
 
 interface Topic {
@@ -62,6 +62,37 @@ interface QuestionTimestamp {
   questionId: string;
   startTime: number; // milliseconds from start of recording
   endTime: number; // milliseconds from start of recording
+}
+
+// Add new interface for offline storage
+interface OfflineSubmission {
+  id: string;
+  studentId: string;
+  assessmentId: string;
+  audioUri: string;
+  metadata: any;
+  timestamps: QuestionTimestamp[];
+  recordedAt: string;
+  status: "pending" | "synced";
+}
+
+interface QuestionMedia {
+  imageUrl?: string;
+  audioUrl?: string;
+}
+
+// Add new interface for pending uploads
+interface PendingUpload {
+  id: string;
+  studentId: string;
+  studentName: string;
+  assessmentId: string;
+  assessmentName: string;
+  audioUri: string;
+  metadata: any;
+  timestamps: QuestionTimestamp[];
+  recordedAt: string;
+  status: "pending" | "synced";
 }
 
 const TakeAssessment = () => {
@@ -98,6 +129,12 @@ const TakeAssessment = () => {
   // Bottom sheet state
   const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false);
 
+  // Add new state for offline mode
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+
+  const [currentQuestionMedia, setCurrentQuestionMedia] =
+    useState<QuestionMedia>({});
+
   // Initialize with assessment data and students
   useEffect(() => {
     loadAssessmentAndStudents();
@@ -106,29 +143,44 @@ const TakeAssessment = () => {
   // Flatten all questions from topics when assessment loads
   useEffect(() => {
     if (assessment) {
+      console.log(
+        "[Debug] Assessment loaded, processing topics:",
+        assessment.topics
+      );
       const questions: Question[] = [];
       assessment.topics.forEach((topic) => {
+        console.log(`[Debug] Processing topic "${topic.name}":`);
         if (topic.questions) {
+          topic.questions.forEach((q, i) => {
+            console.log(`[Debug] Question ${i + 1} in topic "${topic.name}":`, {
+              id: q.id,
+              text: q.text,
+              hasText: Boolean(q.text),
+              textLength: q.text?.length,
+            });
+          });
           questions.push(...topic.questions);
         }
       });
+
       console.log(
-        "All Questions Data:",
+        "[Debug] Final processed questions:",
         questions.map((q) => ({
           id: q.id,
           text: q.text,
-          imageUrl: q.imageUrl,
-          questionType: q.questionType,
-          options: q.options,
-          audioUrl: q.audioUrl,
+          hasText: Boolean(q.text),
+          textLength: q.text?.length,
         }))
       );
-      console.log(
-        "Audio URLs for all questions:",
-        questions.map((q) => q.audioUrl)
-      );
+
       setAllQuestions(questions);
       if (questions.length > 0) {
+        console.log("[Debug] Setting initial question:", {
+          id: questions[0].id,
+          text: questions[0].text,
+          hasText: Boolean(questions[0].text),
+          textLength: questions[0].text?.length,
+        });
         setCurrentQuestion(questions[0]);
       }
     }
@@ -138,60 +190,129 @@ const TakeAssessment = () => {
   useEffect(() => {
     if (allQuestions.length > 0 && currentQuestionIndex < allQuestions.length) {
       const newQuestion = allQuestions[currentQuestionIndex];
-      console.log("Current Question Data:", {
+      console.log("[Debug] Updating current question:", {
+        index: currentQuestionIndex,
         id: newQuestion.id,
         text: newQuestion.text,
-        imageUrl: newQuestion.imageUrl,
-        questionType: newQuestion.questionType,
-        options: newQuestion.options,
-        audioUrl: newQuestion.audioUrl,
+        hasText: Boolean(newQuestion.text),
+        textLength: newQuestion.text?.length,
       });
-      console.log("Audio URL for current question:", newQuestion.audioUrl);
+
       setCurrentQuestion(newQuestion);
       setQuestionCompleted(false);
+
+      // Load offline media for the current question
+      if (isOfflineMode && assessmentId) {
+        getQuestionMedia(assessmentId, newQuestion.id)
+          .then((media: QuestionMedia) => {
+            console.log("Loaded offline media:", media);
+            setCurrentQuestionMedia(media);
+          })
+          .catch((error: Error) => {
+            console.error("Error loading offline media:", error);
+          });
+      }
     }
-  }, [currentQuestionIndex, allQuestions]);
+  }, [currentQuestionIndex, allQuestions, isOfflineMode, assessmentId]);
 
   // Load assessment data and students
   const loadAssessmentAndStudents = async () => {
     try {
       setLoading(true);
-      const authToken = await AsyncStorage.getItem("authToken");
       const anganwadiId = await AsyncStorage.getItem("anganwadiId");
-      const anganwadiData = await AsyncStorage.getItem("anganwadiData");
 
-      if (!assessmentId || !authToken || !anganwadiId) {
+      console.log("[Debug] Starting loadAssessmentAndStudents");
+      console.log("[Debug] AnganwadiId:", anganwadiId);
+
+      if (!assessmentId || !anganwadiId) {
         setError("Missing required data");
         setLoading(false);
         return;
       }
 
-      // Load students from cached anganwadi data
-      if (anganwadiData) {
-        const data = JSON.parse(anganwadiData);
-        if (data.students && Array.isArray(data.students)) {
-          setStudents(data.students);
-        }
-      }
+      // Check for offline data
+      const offlineData = await AsyncStorage.getItem(
+        `assessment_${assessmentId}`
+      );
+      if (offlineData) {
+        try {
+          console.log(
+            "[Debug] Found offline data for assessment:",
+            assessmentId
+          );
+          const parsedData = JSON.parse(offlineData);
+          console.log(
+            "[Debug] Raw offline data:",
+            JSON.stringify(parsedData, null, 2)
+          );
+          console.log(
+            "[Debug] Parsed offline data assessment:",
+            parsedData.assessment
+          );
+          console.log(
+            "[Debug] Parsed offline data topics:",
+            JSON.stringify(parsedData.topics, null, 2)
+          );
 
-      // Fetch assessment details
-      try {
-        const config = { headers: { Authorization: `Bearer ${authToken}` } };
-        const response = await axios.get(
-          `${API_URL}/global-assessments/${assessmentId}`,
-          config
-        );
+          // Verify the structure of topics and questions
+          if (parsedData.topics) {
+            parsedData.topics.forEach((topic: any, index: number) => {
+              console.log(`[Debug] Topic ${index + 1}:`, {
+                name: topic.name,
+                questionCount: topic.questions?.length || 0,
+                firstQuestion: topic.questions?.[0],
+              });
+            });
+          }
 
-        if (response.data) {
-          setAssessment(response.data);
+          setAssessment({
+            id: parsedData.assessment.id,
+            name: parsedData.assessment.name,
+            description: parsedData.assessment.description,
+            startDate: parsedData.assessment.startDate,
+            endDate: parsedData.assessment.endDate,
+            isActive: parsedData.assessment.isActive,
+            status: parsedData.assessment.status,
+            topics: parsedData.topics,
+          });
+
+          if (parsedData.students && Array.isArray(parsedData.students)) {
+            // Filter out students who have already been assessed
+            const offlineSubmissions = await AsyncStorage.getItem(
+              `offline_submissions_${assessmentId}`
+            );
+            const submissions = offlineSubmissions
+              ? JSON.parse(offlineSubmissions)
+              : [];
+            const assessedStudentIds = new Set(
+              submissions.map((sub: OfflineSubmission) => sub.studentId)
+            );
+
+            const availableStudents = parsedData.students.filter(
+              (student: any) => !assessedStudentIds.has(student.id)
+            );
+
+            setStudents(availableStudents);
+          }
+
+          setIsOfflineMode(true);
           setError(null);
-        } else {
-          setError("Invalid assessment data");
+          setLoading(false);
+          return;
+        } catch (parseError) {
+          console.error("Error parsing offline data:", parseError);
         }
-      } catch (apiError: any) {
-        console.error("Error fetching assessment:", apiError);
-        setError("Could not fetch assessment details");
       }
+
+      // If no offline data or parsing failed, try online mode
+      const authToken = await AsyncStorage.getItem("authToken");
+      if (!authToken) {
+        setError("Please download the assessment for offline use");
+        setLoading(false);
+        return;
+      }
+
+      // ... rest of the online loading code ...
     } catch (e) {
       console.error("Error loading data:", e);
       setError("Failed to load assessment data");
@@ -349,7 +470,7 @@ const TakeAssessment = () => {
       // The backend is expecting "file" field, not "audio"
       formData.append("file", {
         uri: uri,
-        type: "audio/aac",
+        type: "audio/mp3",
         name: `recording_${Date.now()}.acc`,
       } as any);
 
@@ -361,7 +482,7 @@ const TakeAssessment = () => {
         JSON.stringify({
           fieldName: "file",
           uri: uri.substring(0, 50) + "...", // Show part of the URI for debugging
-          type: "audio/acc",
+          type: "audio/mp3",
           name: `recording_${Date.now()}.acc`,
         })
       );
@@ -446,7 +567,7 @@ const TakeAssessment = () => {
         questionId: timestamp.questionId,
         questionText: question?.text || "Unknown question",
         topicName: topicName,
-        questionType: question?.questionType || "SPEAKING",
+        questionType: question?.answerOptions ? "SPEAKING" : "TEXT",
         startTimeMs: timestamp.startTime,
         endTimeMs: timestamp.endTime,
         durationMs: timestamp.endTime - timestamp.startTime,
@@ -610,7 +731,32 @@ const TakeAssessment = () => {
     setShowSubmitConfirmation(false);
   };
 
-  // Submit all responses to the backend
+  // Add function to store pending upload
+  const storePendingUpload = async (uploadData: PendingUpload) => {
+    try {
+      // Get existing pending uploads
+      const pendingUploadsStr = await AsyncStorage.getItem("pendingUploads");
+      const pendingUploads: PendingUpload[] = pendingUploadsStr
+        ? JSON.parse(pendingUploadsStr)
+        : [];
+
+      // Add new upload
+      pendingUploads.push(uploadData);
+
+      // Save back to storage
+      await AsyncStorage.setItem(
+        "pendingUploads",
+        JSON.stringify(pendingUploads)
+      );
+
+      console.log("Stored pending upload:", uploadData.id);
+    } catch (error) {
+      console.error("Error storing pending upload:", error);
+      throw error;
+    }
+  };
+
+  // Modify submitResponses to use the new storage system
   const submitResponses = async () => {
     if (!currentStudent || !assessment) {
       Alert.alert("Error", "Missing student or assessment data");
@@ -629,37 +775,41 @@ const TakeAssessment = () => {
         return;
       }
 
-      // Create metadata for the recording
+      // Create metadata
       const metadata = createAudioMetadata();
-      console.log("Created metadata for submission");
 
-      // Store response locally
-      const localResponse = {
+      // Create pending upload object
+      const pendingUpload: PendingUpload = {
+        id: `${Date.now()}_${currentStudent.id}`,
         studentId: currentStudent.id,
         studentName: currentStudent.name,
         assessmentId: assessment.id,
         assessmentName: assessment.name,
         audioUri: audioFileUri,
-        metadata: metadata,
+        metadata,
         timestamps: questionTimestamps,
         recordedAt: new Date().toISOString(),
-        status: "pending" as const,
+        status: "pending",
       };
 
-      // Get existing responses from AsyncStorage
-      const existingResponses = await AsyncStorage.getItem("pendingResponses");
-      const pendingResponses = existingResponses
-        ? JSON.parse(existingResponses)
-        : [];
+      // Store the pending upload
+      await storePendingUpload(pendingUpload);
 
-      // Add new response
-      pendingResponses.push(localResponse);
+      // If we're in offline mode, also store in offline submissions
+      if (isOfflineMode) {
+        const existingSubmissionsStr = await AsyncStorage.getItem(
+          `offline_submissions_${assessment.id}`
+        );
+        const existingSubmissions = existingSubmissionsStr
+          ? JSON.parse(existingSubmissionsStr)
+          : [];
+        existingSubmissions.push(pendingUpload);
 
-      // Save back to AsyncStorage
-      await AsyncStorage.setItem(
-        "pendingResponses",
-        JSON.stringify(pendingResponses)
-      );
+        await AsyncStorage.setItem(
+          `offline_submissions_${assessment.id}`,
+          JSON.stringify(existingSubmissions)
+        );
+      }
 
       // Reset state for next student
       setCurrentQuestionIndex(0);
@@ -671,24 +821,31 @@ const TakeAssessment = () => {
       setRecording(null);
       setIsRecording(false);
 
-      // Find the next student in the list
+      // Remove assessed student from the list
+      setStudents((prev) => prev.filter((s) => s.id !== currentStudent.id));
+
+      // Find next student
       const currentIndex = students.findIndex(
         (s) => s.id === currentStudent.id
       );
       const nextStudent = students[currentIndex + 1];
 
       if (nextStudent) {
-        // Start assessment for next student
         selectStudent(nextStudent);
       } else {
-        // If no more students, show completion message
         Alert.alert(
           "Assessment Complete",
-          "All students have been assessed. You can upload the responses later from the Pending Uploads section.",
+          isOfflineMode
+            ? "All students have been assessed. The responses will be uploaded when you're back online. You can view them in Pending Uploads."
+            : "All students have been assessed. You can view the responses in Pending Uploads.",
           [
             {
-              text: "OK",
+              text: "View Pending Uploads",
               onPress: () => router.push("/Screens/pendingUploads"),
+            },
+            {
+              text: "OK",
+              onPress: () => router.back(),
             },
           ]
         );
@@ -696,7 +853,7 @@ const TakeAssessment = () => {
     } catch (error) {
       console.error("Process error:", error);
       setIsSubmitting(false);
-      Alert.alert("Error", "Failed to save responses locally");
+      Alert.alert("Error", "Failed to save response");
     }
   };
 
@@ -758,117 +915,108 @@ const TakeAssessment = () => {
     }
   };
 
-  // Play audio function
+  // Update playQuestionAudio function to handle only manual playback
   const playQuestionAudio = async () => {
-    if (!currentQuestion?.audioUrl) {
+    const audioUrl = isOfflineMode
+      ? currentQuestionMedia.audioUrl
+      : currentQuestion?.audioUrl;
+
+    if (!audioUrl) {
       console.log("No audio URL available for this question");
-      Alert.alert("Audio Error", "No audio available for this question");
       return;
     }
 
     try {
-      console.log(
-        "Attempting to play audio from URL:",
-        currentQuestion.audioUrl
-      );
-
-      // Stop previous audio if playing
+      // Clean up any existing sound first
       if (sound) {
-        await sound.stopAsync();
-        await sound.unloadAsync();
-        setSound(null);
+        try {
+          await sound.stopAsync().catch(() => {});
+          await sound.unloadAsync().catch(() => {});
+          setSound(null);
+        } catch (error) {
+          console.error("Error cleaning up previous sound:", error);
+        }
       }
-
-      // Set audio mode first to ensure playback works
-      console.log("Setting audio mode for playback");
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        interruptionModeIOS: 1, // DoNotMix
-        interruptionModeAndroid: 1, // DoNotMix
-        shouldDuckAndroid: false,
-        playThroughEarpieceAndroid: false,
-      });
 
       setIsAudioPlaying(true);
 
-      // Try to create and load the sound with higher volume
-      console.log("Creating new sound object");
       const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: currentQuestion.audioUrl },
-        { shouldPlay: true, volume: 1.0, progressUpdateIntervalMillis: 100 }
+        { uri: audioUrl },
+        {
+          shouldPlay: false,
+          volume: 1.0,
+          progressUpdateIntervalMillis: 100,
+          positionMillis: 0,
+        }
       );
 
       setSound(newSound);
 
-      // Make sure the volume is at maximum
-      await newSound.setVolumeAsync(1.0);
-
-      // Listen for playback status updates with improved logging
+      // Set up event listener before playing
       newSound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded) {
-          console.log(
-            "Audio playback status:",
-            status.isPlaying ? "Playing" : "Paused",
-            "Position:",
-            status.positionMillis,
-            "Duration:",
-            status.durationMillis,
-            "Volume:",
-            status.volume
-          );
-
-          if (status.didJustFinish) {
-            console.log("Audio playback finished");
-            setIsAudioPlaying(false);
-            newSound.unloadAsync();
-          }
-        } else if (status.error) {
-          console.error("Audio playback error:", status.error);
+        if (!status.isLoaded) {
           setIsAudioPlaying(false);
-          Alert.alert("Audio Error", `Playback error: ${status.error}`);
+          return;
+        }
+
+        if (status.didJustFinish) {
+          console.log("Audio playback finished");
+          setIsAudioPlaying(false);
         }
       });
 
-      // Confirm audio is playing
-      console.log("Audio should be playing now");
-    } catch (error: any) {
-      console.error("Error playing audio:", error);
+      // Set volume and play
+      await newSound.setVolumeAsync(1.0);
+      await newSound.playAsync();
+    } catch (error) {
+      console.error("Error in playQuestionAudio:", error);
       setIsAudioPlaying(false);
-      Alert.alert(
-        "Audio Error",
-        `Failed to play the audio: ${error.message || "Unknown error"}`
-      );
-
-      // Additional diagnostics
-      console.log(
-        "Audio URL format:",
-        currentQuestion.audioUrl
-          ? currentQuestion.audioUrl.substring(0, 30) + "..."
-          : "null"
-      );
-      console.log("Device info:", Platform.OS, Platform.Version);
+      Alert.alert("Error", "Failed to play audio");
     }
   };
 
-  // Clean up audio when component unmounts
+  // Update useEffect for cleanup only
+  useEffect(() => {
+    const cleanup = async () => {
+      try {
+        if (sound) {
+          await sound.stopAsync().catch(() => {});
+          await sound.unloadAsync().catch(() => {});
+          setSound(null);
+          setIsAudioPlaying(false);
+        }
+      } catch (error) {
+        console.error("Error in cleanup:", error);
+      }
+    };
+
+    return () => {
+      cleanup();
+    };
+  }, [currentQuestionIndex]);
+
+  // Add cleanup effect for component unmount
   useEffect(() => {
     return () => {
       if (sound) {
-        sound.unloadAsync();
+        sound.stopAsync().catch(() => {});
+        sound.unloadAsync().catch(() => {});
       }
     };
-  }, [sound]);
+  }, []);
 
-  // Clean up audio when current question changes
-  useEffect(() => {
-    if (sound) {
-      sound.unloadAsync();
-      setSound(null);
-      setIsAudioPlaying(false);
-    }
-  }, [currentQuestionIndex]);
+  // Check if current question already has timestamps
+  const currentQuestionHasTimestamps = questionTimestamps.some(
+    (ts) => ts.questionId === currentQuestion?.id
+  );
+
+  const currentTimestamp = currentQuestion
+    ? questionTimestamps.find((ts) => ts.questionId === currentQuestion.id)
+    : null;
+
+  const isQuestionInProgress = Boolean(
+    currentTimestamp && currentTimestamp.endTime === 0
+  );
 
   if (loading) {
     return (
@@ -961,19 +1109,6 @@ const TakeAssessment = () => {
     );
   }
 
-  // Check if current question already has timestamps
-  const currentQuestionHasTimestamps = questionTimestamps.some(
-    (ts) => ts.questionId === currentQuestion?.id
-  );
-
-  const currentTimestamp = currentQuestion
-    ? questionTimestamps.find((ts) => ts.questionId === currentQuestion.id)
-    : null;
-
-  const isQuestionInProgress = Boolean(
-    currentTimestamp && currentTimestamp.endTime === 0
-  );
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
@@ -1014,6 +1149,11 @@ const TakeAssessment = () => {
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.title}>{assessment?.name}</Text>
+          {isOfflineMode && (
+            <View style={styles.offlineBadge}>
+              <Text style={styles.offlineBadgeText}>Offline Mode</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.studentBadge}>
@@ -1043,27 +1183,38 @@ const TakeAssessment = () => {
         {currentQuestion && (
           <View style={styles.questionContainer}>
             <View style={styles.questionHeader}>
-              <Text style={styles.questionText}>{currentQuestion.text}</Text>
-              {currentQuestion.audioUrl && (
-                <TouchableOpacity
-                  style={styles.audioButton}
-                  onPress={playQuestionAudio}
-                  disabled={isAudioPlaying}
-                >
-                  <Ionicons
-                    name={isAudioPlaying ? "volume-high" : "volume-medium"}
-                    size={24}
-                    color={
-                      isAudioPlaying ? Colors.primary : Colors.textSecondary
-                    }
-                  />
-                </TouchableOpacity>
-              )}
+              <View style={styles.questionTextContainer}>
+                <Text style={styles.questionText}>{currentQuestion.text}</Text>
+                {currentQuestion.audioUrl && (
+                  <TouchableOpacity
+                    style={[
+                      styles.audioIconButton,
+                      isAudioPlaying && styles.audioIconButtonPlaying,
+                    ]}
+                    onPress={playQuestionAudio}
+                    disabled={isAudioPlaying}
+                  >
+                    <Ionicons
+                      name={isAudioPlaying ? "volume-high" : "volume-medium"}
+                      size={24}
+                      color={
+                        isAudioPlaying ? Colors.primary : Colors.textSecondary
+                      }
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-            {currentQuestion.imageUrl && (
+            {(isOfflineMode
+              ? currentQuestionMedia.imageUrl
+              : currentQuestion.imageUrl) && (
               <View>
                 <Image
-                  source={{ uri: currentQuestion.imageUrl }}
+                  source={{
+                    uri: isOfflineMode
+                      ? currentQuestionMedia.imageUrl
+                      : currentQuestion.imageUrl,
+                  }}
                   style={{ width: "100%", height: 200 }}
                   resizeMode="contain"
                 />
@@ -1131,9 +1282,7 @@ const TakeAssessment = () => {
           ) : (
             <View style={styles.navButtonsContainer}>
               <TouchableOpacity style={styles.skipButton} onPress={skipStudent}>
-                <Text style={styles.skipButtonText}>
-                  Skip | ಸ್ಕಿಪ್
-                </Text>
+                <Text style={styles.skipButtonText}>Skip | ಸ್ಕಿಪ್</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1158,9 +1307,9 @@ const TakeAssessment = () => {
         animationType="slide"
         onRequestClose={handleSubmitCancel}
       >
-        <TouchableOpacity 
-          style={styles.modalOverlay} 
-          activeOpacity={1} 
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
           onPress={handleSubmitCancel}
         >
           <View style={styles.bottomSheet}>
@@ -1220,17 +1369,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: width * 0.05,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    backgroundColor: Colors.background,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   backButton: {
     marginRight: 15,
+    padding: 5,
   },
   backButtonText: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
     color: Colors.primary,
   },
   title: {
-    fontSize: 22,
+    flex: 1,
+    fontSize: 20,
     fontWeight: "700",
     color: Colors.textPrimary,
   },
@@ -1258,24 +1415,24 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 15,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   studentInitialContainer: {
-    width: 45,
-    height: 45,
-    borderRadius: 23,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.accent + "20",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
   },
   studentInitial: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
     color: Colors.accent,
   },
@@ -1304,18 +1461,20 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary + "15",
     borderRadius: 12,
     paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingVertical: 10,
     marginHorizontal: width * 0.05,
     marginTop: 15,
+    marginBottom: 10,
   },
   studentBadgeText: {
     color: Colors.primary,
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 15,
   },
   progressContainer: {
     paddingHorizontal: width * 0.05,
     marginTop: 15,
+    marginBottom: 10,
   },
   progressText: {
     fontSize: 14,
@@ -1335,12 +1494,15 @@ const styles = StyleSheet.create({
   questionContainer: {
     flex: 1,
     padding: width * 0.05,
-    marginTop: 20,
+    marginTop: 10,
   },
   questionHeader: {
+    marginBottom: 25,
+  },
+  questionTextContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 30,
+    alignItems: "flex-start",
+    justifyContent: "space-between",
   },
   questionText: {
     flex: 1,
@@ -1348,27 +1510,37 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.textPrimary,
     lineHeight: 28,
+    marginRight: 10,
   },
-  audioButton: {
-    padding: 10,
-    marginLeft: 10,
+  audioIconButton: {
+    padding: 8,
     borderRadius: 20,
     backgroundColor: Colors.background,
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  audioIconButtonPlaying: {
+    backgroundColor: Colors.primary + "10",
+    borderColor: Colors.primary,
+  },
   recordingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 20,
   },
   recordButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 30,
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    minWidth: width * 0.5,
+    borderRadius: 16,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    minWidth: width * 0.7,
     alignItems: "center",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   recordButtonText: {
     color: "#FFFFFF",
@@ -1378,11 +1550,16 @@ const styles = StyleSheet.create({
   recordingActiveContainer: {
     alignItems: "center",
     justifyContent: "center",
+    width: "100%",
   },
   recordingIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
+    backgroundColor: Colors.success + "15",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginBottom: 25,
   },
   recordingDot: {
     width: 12,
@@ -1390,6 +1567,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: Colors.success,
     marginRight: 8,
+    shadowColor: Colors.success,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 2,
   },
   recordingText: {
     fontSize: 16,
@@ -1398,11 +1580,16 @@ const styles = StyleSheet.create({
   },
   stopButton: {
     backgroundColor: Colors.success,
-    borderRadius: 30,
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    minWidth: width * 0.5,
+    borderRadius: 16,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    minWidth: width * 0.7,
     alignItems: "center",
+    shadowColor: Colors.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   stopButtonText: {
     color: "#FFFFFF",
@@ -1411,12 +1598,15 @@ const styles = StyleSheet.create({
   },
   recordingCompleteContainer: {
     alignItems: "center",
+    backgroundColor: Colors.success + "15",
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 20,
   },
   recordingCompleteText: {
     fontSize: 16,
     color: Colors.success,
     fontWeight: "600",
-    marginBottom: 20,
   },
   navigationContainer: {
     flexDirection: "row",
@@ -1431,30 +1621,38 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
-    gap: 10,
+    gap: 12,
   },
   navButton: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.primary,
     borderRadius: 12,
     paddingHorizontal: 20,
     paddingVertical: 15,
     flex: 1,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.border,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   navButtonText: {
-    color: Colors.textPrimary,
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
   },
   skipButton: {
-    backgroundColor: "#FFA500",
+    backgroundColor: Colors.warning,
     borderRadius: 12,
     paddingHorizontal: 20,
     paddingVertical: 15,
     flex: 1,
     alignItems: "center",
+    shadowColor: Colors.warning,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   skipButtonText: {
     color: "#FFFFFF",
@@ -1466,8 +1664,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 25,
     paddingVertical: 15,
-    minWidth: width * 0.6,
+    width: "100%",
     alignItems: "center",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitButtonText: {
     color: "#FFFFFF",
@@ -1493,39 +1696,43 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: Colors.primary + "30",
+    backgroundColor: Colors.primary + "20",
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   countdownNumber: {
     fontSize: 100,
     fontWeight: "bold",
-    color: Colors.textPrimary,
+    color: Colors.primary,
   },
-  // Bottom sheet styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
   },
   bottomSheet: {
     backgroundColor: Colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: Platform.OS === "ios" ? 40 : 20,
   },
   bottomSheetHandle: {
     width: 40,
     height: 5,
     backgroundColor: Colors.border,
     borderRadius: 3,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginBottom: 20,
   },
   bottomSheetTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.textPrimary,
     marginBottom: 10,
   },
@@ -1535,34 +1742,50 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   bottomSheetButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
   },
   bottomSheetCancelButton: {
     flex: 1,
     padding: 15,
-    marginRight: 10,
-    borderRadius: 10,
-    alignItems: 'center',
+    borderRadius: 12,
+    alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.border,
   },
   bottomSheetCancelText: {
     color: Colors.textPrimary,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   bottomSheetConfirmButton: {
     flex: 1,
     padding: 15,
-    marginLeft: 10,
-    borderRadius: 10,
-    alignItems: 'center',
+    borderRadius: 12,
+    alignItems: "center",
     backgroundColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   bottomSheetConfirmText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
+  },
+  offlineBadge: {
+    backgroundColor: Colors.warning + "20",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginLeft: 10,
+  },
+  offlineBadgeText: {
+    color: Colors.warning,
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

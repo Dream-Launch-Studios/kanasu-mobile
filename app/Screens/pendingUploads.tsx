@@ -44,7 +44,7 @@ const PendingUploads = () => {
 
   const loadPendingResponses = async () => {
     try {
-      const responses = await AsyncStorage.getItem("pendingResponses");
+      const responses = await AsyncStorage.getItem("pendingUploads");
       if (responses) {
         const parsedResponses = JSON.parse(responses);
         // Ensure all responses have valid status
@@ -64,12 +64,28 @@ const PendingUploads = () => {
 
   const clearPendingResponses = async () => {
     try {
-      await clearAllStorage();
-      setPendingResponses([]);
-      Alert.alert("Success", "All storage has been cleared");
+      Alert.alert(
+        "Clear Pending Uploads",
+        "Are you sure you want to clear all pending uploads?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          {
+            text: "Clear",
+            style: "destructive",
+            onPress: async () => {
+              await AsyncStorage.removeItem("pendingUploads");
+              setPendingResponses([]);
+              Alert.alert("Success", "All pending uploads have been cleared");
+            }
+          }
+        ]
+      );
     } catch (error) {
       console.error("Error clearing pending responses:", error);
-      Alert.alert("Error", "Failed to clear storage");
+      Alert.alert("Error", "Failed to clear pending uploads");
     }
   };
 
@@ -156,7 +172,7 @@ const PendingUploads = () => {
 
         // Save to AsyncStorage
         await AsyncStorage.setItem(
-          "pendingResponses",
+          "pendingUploads",
           JSON.stringify(updatedResponses)
         );
         setPendingResponses(updatedResponses);
@@ -185,7 +201,7 @@ const PendingUploads = () => {
           : r
       );
       await AsyncStorage.setItem(
-        "pendingResponses",
+        "pendingUploads",
         JSON.stringify(updatedResponses)
       );
       setPendingResponses(updatedResponses);
@@ -296,7 +312,7 @@ const PendingUploads = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButtonContainer}
             onPress={() => router.back()}
           >
@@ -309,7 +325,9 @@ const PendingUploads = () => {
           style={styles.clearAllButton}
           onPress={clearPendingResponses}
         >
-          <Text style={styles.clearAllButtonText}>Clear All | ಎಲ್ಲಾ ತೆರವುಗೊಳಿಸಿ</Text>
+          <Text style={styles.clearAllButtonText}>
+            Clear All | ಎಲ್ಲಾ ತೆರವುಗೊಳಿಸಿ
+          </Text>
         </TouchableOpacity>
 
         {pendingResponses.length === 0 ? (
@@ -326,18 +344,25 @@ const PendingUploads = () => {
               {uploading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.uploadAllButtonText}>Upload All | ಎಲ್ಲಾ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ</Text>
+                <Text style={styles.uploadAllButtonText}>
+                  Upload All | ಎಲ್ಲಾ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ
+                </Text>
               )}
             </TouchableOpacity>
 
-            <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.listContainer}
+              showsVerticalScrollIndicator={false}
+            >
               {pendingResponses.map((response, index) => (
                 <View
                   key={`${response.studentId}-${response.assessmentId}`}
                   style={styles.responseCard}
                 >
                   <View style={styles.responseHeader}>
-                    <Text style={styles.studentName}>{response.studentName}</Text>
+                    <Text style={styles.studentName}>
+                      {response.studentName}
+                    </Text>
                     <Text style={styles.assessmentName}>
                       {response.assessmentName}
                     </Text>
@@ -358,7 +383,9 @@ const PendingUploads = () => {
                       ]}
                     >
                       <Text style={styles.statusText}>
-                        {response.status === "uploaded" ? "Uploaded" : "Pending"}
+                        {response.status === "uploaded"
+                          ? "Uploaded"
+                          : "Pending"}
                       </Text>
                     </View>
                     {response.status === "pending" && (
@@ -366,7 +393,9 @@ const PendingUploads = () => {
                         style={styles.uploadButton}
                         onPress={() => uploadResponse(response)}
                       >
-                        <Text style={styles.uploadButtonText}>Upload | ಅಪ್‌ಲೋಡ್ ಮಾಡಿ</Text>
+                        <Text style={styles.uploadButtonText}>
+                          Upload | ಅಪ್‌ಲೋಡ್ ಮಾಡಿ
+                        </Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -392,8 +421,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     flexDirection: "row",
@@ -401,10 +430,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -444,7 +473,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 4,
@@ -472,7 +501,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
@@ -522,7 +551,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.2,
         shadowRadius: 2,
@@ -547,7 +576,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 4,

@@ -17,6 +17,7 @@ import Colors from "@/constants/Colors";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "@/constants/api";
+import NetInfo from "@react-native-community/netinfo";
 const { width, height } = Dimensions.get("window");
 
 // Define type for Student
@@ -73,28 +74,29 @@ const Students = () => {
         }
       }
 
-      // Fetch fresh data if we have the token
-      if (anganwadiId && authToken) {
+      // Check internet connectivity
+      const netInfo = await NetInfo.fetch();
+      
+      // Only proceed with API call if we have internet
+      if (netInfo.isConnected && anganwadiId && authToken) {
         try {
-          console.log("Fetching anganwadi data from API...");
-
+          console.log("Internet available, fetching fresh data...");
+          
           const config = {
             headers: {
               Authorization: `Bearer ${authToken}`,
             },
           };
 
-          // Use the proper endpoint
           const anganwadiUrl = `${API_URL}/anganwadis/${anganwadiId}`;
-          console.log("Fetching from:", anganwadiUrl);
-
           const response = await axios.get(anganwadiUrl, config);
 
           if (response.data.students && Array.isArray(response.data.students)) {
+            // Update both state and cache
             setStudents(response.data.students);
             setFilteredStudents(response.data.students);
+            await AsyncStorage.setItem("anganwadiData", JSON.stringify(response.data));
             setError(null);
-            console.log("Students data:", response.data.students);
           } else {
             console.log("Invalid student data format in API response");
             if (!students.length) {
@@ -103,16 +105,14 @@ const Students = () => {
           }
         } catch (apiError: any) {
           console.error("Error fetching anganwadi data:", apiError.message);
-          console.log("Status:", apiError.response?.status);
-          console.log("Error details:", apiError.response?.data);
-
           if (!students.length) {
             setError("Could not fetch student data");
           }
         }
-      } else {
+      } else if (!netInfo.isConnected) {
+        console.log("No internet connection, using cached data");
         if (!students.length) {
-          setError("No student information available. Please log in again.");
+          setError("No internet connection. Showing cached data.");
         }
       }
     } catch (e) {

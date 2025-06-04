@@ -1,1 +1,1 @@
-export const API_URL = "https://api.dreamlaunch.studio/api";
+export const API_URL = "http://localhost:3000/api";

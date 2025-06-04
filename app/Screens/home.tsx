@@ -46,7 +46,7 @@ const Home = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [anganwadi, setAnganwadi] = useState<Anganwadi | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -62,9 +62,6 @@ const Home = () => {
       const anganwadiId = await AsyncStorage.getItem("anganwadiId");
       const authToken = await AsyncStorage.getItem("authToken");
 
-      console.log("Retrieved anganwadi ID:", anganwadiId);
-      console.log("Auth token available:", !!authToken);
-
       // Load cached data first
       if (storedTeacherData) {
         setTeacher(JSON.parse(storedTeacherData));
@@ -78,20 +75,14 @@ const Home = () => {
       // Then fetch fresh data if we have the anganwadi ID and token
       if (anganwadiId && authToken) {
         try {
-          console.log("Fetching anganwadi data from API...");
-
           const config = {
             headers: {
               Authorization: `Bearer ${authToken}`,
             },
           };
 
-          // Use the correct endpoint from anganwadiController.ts
           const anganwadiUrl = `${API_URL}/anganwadis/${anganwadiId}`;
-          console.log("Fetching from:", anganwadiUrl);
-
           const response = await axios.get(anganwadiUrl, config);
-          console.log("Anganwadi data fetched successfully");
 
           // Update state and cache
           setAnganwadi(response.data);
@@ -99,26 +90,17 @@ const Home = () => {
             "anganwadiData",
             JSON.stringify(response.data)
           );
-
-          setError(null);
+          setIsOffline(false);
         } catch (apiError: any) {
-          console.error("Error fetching anganwadi data:", apiError.message);
-          console.log("Status:", apiError.response?.status);
-          console.log("Error details:", apiError.response?.data);
-
-          // Don't show error if we have cached data
-          if (!anganwadi) {
-            setError("Could not fetch latest anganwadi data");
-          }
+          console.log("Working in offline mode - using cached data");
+          setIsOffline(true);
         }
-      } else {
-        if (!anganwadi) {
-          setError("No anganwadi information available. Please log in again.");
-        }
+      } else if (storedAnganwadiData) {
+        setIsOffline(true);
       }
     } catch (e) {
       console.error("Error loading data:", e);
-      setError("Failed to load data");
+      setIsOffline(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -227,7 +209,11 @@ const Home = () => {
             </Text>
             <Text style={styles.anganwadiState}>{anganwadi?.state || ""}</Text>
 
-            {error && <Text style={styles.errorText}>{error}</Text>}
+            {isOffline && (
+              <View style={styles.offlineIndicator}>
+                <Text style={styles.offlineText}>App is running offline</Text>
+              </View>
+            )}
           </View>
 
           {/* Stats Overview */}
@@ -690,6 +676,18 @@ const styles = StyleSheet.create({
   logoutText: {
     color: Colors.error,
     fontSize: 16,
+    fontWeight: "600",
+  },
+  offlineIndicator: {
+    backgroundColor: Colors.warning + "20",
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: "center",
+  },
+  offlineText: {
+    color: Colors.warning,
+    fontSize: 14,
     fontWeight: "600",
   },
 });
