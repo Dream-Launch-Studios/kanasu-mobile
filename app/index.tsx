@@ -14,12 +14,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_URL } from "@/constants/api";
 const { width, height } = Dimensions.get("window");
 
 const Onboarding = () => {
   useEffect(() => {
     const checkAuthToken = async () => {
       try {
+        console.log(API_URL);
         const authToken = await AsyncStorage.getItem("authToken");
         if (authToken) {
           // If authToken exists, redirect to home page
@@ -150,8 +152,8 @@ const styles = StyleSheet.create({
       height: 6,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowRadius: 5,
+    elevation: 2,
     position: "relative",
   },
   backgroundPattern: {
@@ -215,13 +217,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderStyle: "dashed",
     borderColor: Colors.border,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
   },
   subtitle: {
     fontSize: Math.min(17, width * 0.043),
@@ -253,16 +248,10 @@ const styles = StyleSheet.create({
   },
   poweredByContainer: {
     alignItems: "center",
-    backgroundColor: "#f7fafc",
     borderRadius: 14,
     paddingVertical: 8,
     paddingHorizontal: 18,
     marginTop: 6,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
     gap: 2,
   },
   poweredByText: {
