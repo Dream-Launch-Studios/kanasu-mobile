@@ -57,10 +57,15 @@ const Login = () => {
 
     setLoading(true);
     try {
+      console.log(
+        "Attempting to send OTP request to:",
+        `${API_URL}/teacher-auth/request-otp`
+      );
       const response = await axios.post(`${API_URL}/teacher-auth/request-otp`, {
         phone: phoneNumber,
       });
 
+      console.log("OTP request response:", response.data);
       setIsOtpSent(true);
       setResendDisabled(true);
       setCountdown(60); // 60 seconds countdown
@@ -77,8 +82,35 @@ const Login = () => {
         setOtp(otpArray);
       }
     } catch (error: any) {
-      if (axios.isAxiosError(error) && error.response) {
-        Alert.alert("Error", error.response.data.error || "Failed to send OTP");
+      console.error("Error sending OTP:", error);
+      console.error("Error details:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        config: error.config,
+      });
+
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          Alert.alert(
+            "Error",
+            error.response.data.error || "Failed to send OTP. Server error."
+          );
+        } else if (error.request) {
+          // The request was made but no response was received
+          Alert.alert(
+            "Network Error",
+            "Could not connect to the server. Please check your internet connection."
+          );
+        } else {
+          // Something happened in setting up the request that triggered an Error
+          Alert.alert(
+            "Error",
+            "An unexpected error occurred. Please try again."
+          );
+        }
       } else {
         Alert.alert("Error", "Network error. Please try again.");
       }
@@ -150,7 +182,7 @@ const Login = () => {
       }
 
       // Navigate to home screen
-      router.push("/Screens/home");
+      router.push("/Screens/assessments");
     } catch (error: any) {
       console.error("OTP verification error:", error);
       if (axios.isAxiosError(error)) {

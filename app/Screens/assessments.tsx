@@ -408,7 +408,7 @@ const Assessments = () => {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => router.push("/Screens/home")}
           >
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>

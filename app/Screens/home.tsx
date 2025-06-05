@@ -261,7 +261,8 @@ const Home = () => {
               >
                 <Text style={styles.iconText}>📊</Text>
               </View>
-              <Text style={styles.itemTitle}>Assessments | ಮೌಲ್ಯಮಾಪನಗಳು</Text>
+              <Text style={styles.itemTitle}>Assessments</Text>
+              <Text style={styles.itemTitleKannada}>ಮೌಲ್ಯಮಾಪನಗಳು</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -276,7 +277,8 @@ const Home = () => {
               >
                 <Text style={styles.iconText}>👥</Text>
               </View>
-              <Text style={styles.itemTitle}>Students | ವಿದ್ಯಾರ್ಥಿಗಳು</Text>
+              <Text style={styles.itemTitle}>Students</Text>
+              <Text style={styles.itemTitleKannada}>ವಿದ್ಯಾರ್ಥಿಗಳು</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -291,9 +293,8 @@ const Home = () => {
               >
                 <Text style={styles.iconText}>📤</Text>
               </View>
-              <Text style={styles.itemTitle}>
-                Pending Uploads | ಬಾಕಿ ಅಪ್‌ಲೋಡ್‌ಗಳು
-              </Text>
+              <Text style={styles.itemTitle}>Pending Uploads</Text>
+              <Text style={styles.itemTitleKannada}>ಬಾಕಿ ಅಪ್‌ಲೋಡ್‌ಗಳು</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -308,7 +309,8 @@ const Home = () => {
               >
                 <Text style={styles.iconText}>⚙️</Text>
               </View>
-              <Text style={styles.itemTitle}>Settings | ಸೆಟ್ಟಿಂಗ್‌ಗಳು</Text>
+              <Text style={styles.itemTitle}>Settings</Text>
+              <Text style={styles.itemTitleKannada}>ಸೆಟ್ಟಿಂಗ್‌ಗಳು</Text>
             </TouchableOpacity>
           </View>
 
@@ -585,6 +587,8 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: Colors.border,
+    minHeight: 140,
+    justifyContent: "center",
   },
   iconContainer: {
     width: 50,
@@ -601,6 +605,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: Colors.textPrimary,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  itemTitleKannada: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: Colors.textSecondary,
+    textAlign: "center",
+    marginTop: 4,
   },
   studentsList: {
     backgroundColor: Colors.surface,
