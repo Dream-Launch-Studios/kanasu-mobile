@@ -10,12 +10,15 @@ import {
   SafeAreaView,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import Colors from "@/constants/Colors";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "@/constants/api";
+import { downloadAssessmentMedia } from '../utils/mediaStorage';
+import { Ionicons } from "@expo/vector-icons";
 const { width, height } = Dimensions.get("window");
 
 // Define types for the API response data
@@ -49,6 +52,7 @@ interface Assessment {
   status: string;
   topics: Topic[];
   anganwadiAssessments: AnganwadiAssessment[];
+  isDownloaded?: boolean;
 }
 
 const Assessments = () => {
@@ -56,9 +60,14 @@ const Assessments = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadingAssessment, setDownloadingAssessment] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'downloaded'>('all');
+  const [downloadedAssessments, setDownloadedAssessments] = useState<Assessment[]>([]);
 
   useEffect(() => {
     loadData();
+    loadDownloadedAssessments();
   }, []);
 
   const loadData = async () => {
@@ -121,9 +130,42 @@ const Assessments = () => {
     }
   };
 
+  const loadDownloadedAssessments = async () => {
+    try {
+      const downloadedIds = await AsyncStorage.getItem('downloadedAssessments');
+      if (downloadedIds) {
+        const ids = JSON.parse(downloadedIds);
+        const downloaded: Assessment[] = [];
+        
+        for (const id of ids) {
+          const assessmentData = await AsyncStorage.getItem(`assessment_${id}`);
+          if (assessmentData) {
+            const data = JSON.parse(assessmentData);
+            if (data.assessment) {
+              downloaded.push({
+                ...data.assessment,
+                topics: data.topics || [],
+                isDownloaded: true
+              });
+            }
+          }
+        }
+        
+        setDownloadedAssessments(downloaded);
+      }
+    } catch (error) {
+      console.error('Error loading downloaded assessments:', error);
+    }
+  };
+
   const handleRefresh = () => {
     setRefreshing(true);
-    loadData();
+    if (activeTab === 'all') {
+      loadData();
+    } else {
+      loadDownloadedAssessments();
+    }
+    setRefreshing(false);
   };
 
   const formatDate = (dateString: string) => {
@@ -133,6 +175,149 @@ const Assessments = () => {
       month: "short",
       year: "numeric",
     });
+  };
+
+  // Add function to check if assessment is downloaded
+  const checkDownloadStatus = async (assessmentId: string) => {
+    try {
+      const downloadedAssessments = await AsyncStorage.getItem('downloadedAssessments');
+      if (downloadedAssessments) {
+        const downloaded = JSON.parse(downloadedAssessments);
+        return downloaded.includes(assessmentId);
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking download status:', error);
+      return false;
+    }
+  };
+
+  // Add function to download assessment
+  const downloadAssessment = async (assessmentId: string) => {
+    try {
+      setDownloadingAssessment(assessmentId);
+      const anganwadiId = await AsyncStorage.getItem("anganwadiId");
+      
+      if (!anganwadiId) {
+        Alert.alert("Error", "Anganwadi ID not found");
+        return;
+      }
+
+      // Download assessment data
+      console.log("[Debug] Downloading assessment:", assessmentId);
+      const response = await axios.get(
+        `${API_URL}/global-assessments/${assessmentId}/download?anganwadiId=${anganwadiId}`
+      );
+
+      if (!response.data) {
+        throw new Error("No data received");
+      }
+
+      // Store assessment data
+      await AsyncStorage.setItem(
+        `assessment_${assessmentId}`,
+        JSON.stringify(response.data)
+      );
+
+      // Update downloaded assessments list
+      const downloadedIds = await AsyncStorage.getItem('downloadedAssessments');
+      const ids = downloadedIds ? JSON.parse(downloadedIds) : [];
+      if (!ids.includes(assessmentId)) {
+        ids.push(assessmentId);
+        await AsyncStorage.setItem('downloadedAssessments', JSON.stringify(ids));
+      }
+
+      // Download media files
+      const mediaFiles = [
+        ...response.data.mediaFiles.images,
+        ...response.data.mediaFiles.audio
+      ];
+      
+      await downloadAssessmentMedia(assessmentId, mediaFiles);
+
+      // Update both assessment lists
+      setAssessments(prevAssessments => 
+        prevAssessments.map(assessment => 
+          assessment.id === assessmentId 
+            ? { ...assessment, isDownloaded: true }
+            : assessment
+        )
+      );
+
+      // Add to downloaded assessments
+      const downloadedAssessment = {
+        ...response.data.assessment,
+        topics: response.data.topics || [],
+        isDownloaded: true
+      };
+      setDownloadedAssessments(prev => [...prev, downloadedAssessment]);
+
+      Alert.alert(
+        "Success",
+        "Assessment downloaded successfully for offline use",
+        [{ text: "OK" }]
+      );
+    } catch (error) {
+      console.error("Download error:", error);
+      Alert.alert(
+        "Download Failed",
+        "Failed to download assessment. Please try again."
+      );
+    } finally {
+      setDownloadingAssessment(null);
+    }
+  };
+
+  const deleteDownloadedAssessment = async (assessmentId: string) => {
+    try {
+      // Show confirmation alert
+      Alert.alert(
+        "Delete Downloaded Assessment",
+        "Are you sure you want to delete this downloaded assessment? You'll need to download it again to use it offline.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel"
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              // Remove from downloadedAssessments list in AsyncStorage
+              const downloadedIds = await AsyncStorage.getItem('downloadedAssessments');
+              if (downloadedIds) {
+                const ids = JSON.parse(downloadedIds);
+                const updatedIds = ids.filter((id: string) => id !== assessmentId);
+                await AsyncStorage.setItem('downloadedAssessments', JSON.stringify(updatedIds));
+              }
+
+              // Remove assessment data
+              await AsyncStorage.removeItem(`assessment_${assessmentId}`);
+
+              // Update UI state
+              setDownloadedAssessments(prev => 
+                prev.filter(assessment => assessment.id !== assessmentId)
+              );
+              
+              // Update isDownloaded status in all assessments list
+              setAssessments(prev =>
+                prev.map(assessment =>
+                  assessment.id === assessmentId
+                    ? { ...assessment, isDownloaded: false }
+                    : assessment
+                )
+              );
+
+              // Show success message
+              Alert.alert("Success", "Assessment removed from downloads");
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error deleting assessment:', error);
+      Alert.alert("Error", "Failed to delete assessment");
+    }
   };
 
   const renderItem = ({ item }: { item: Assessment }) => {
@@ -149,8 +334,20 @@ const Assessments = () => {
         <View style={styles.assessmentHeader}>
           <Text style={styles.assessmentTitle}>{item.name}</Text>
 
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>Active</Text>
+          <View style={styles.headerRight}>
+            {activeTab === 'downloaded' && (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => deleteDownloadedAssessment(item.id)}
+              >
+                <Ionicons name="trash-outline" size={20} color={Colors.error} />
+              </TouchableOpacity>
+            )}
+            <View style={[styles.statusBadge, item.isDownloaded && styles.downloadedBadge]}>
+              <Text style={[styles.statusText, item.isDownloaded && styles.downloadedText]}>
+                {item.isDownloaded ? 'Downloaded' : 'Active'}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -172,12 +369,34 @@ const Assessments = () => {
           <Text style={styles.dateValue}>{formatDate(item.endDate)}</Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.startButton}
-          onPress={() => router.push(`/Screens/takeAssessment?id=${item.id}`)}
-        >
-          <Text style={styles.startButtonText}>Start Assessment | ಮೌಲ್ಯಮಾಪನ ಪ್ರಾರಂಭಿಸಿ</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          {activeTab === 'all' && !item.isDownloaded ? (
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                styles.downloadButton,
+                downloadingAssessment === item.id && styles.downloadingButton
+              ]}
+              onPress={() => downloadAssessment(item.id)}
+              disabled={downloadingAssessment === item.id}
+            >
+              {downloadingAssessment === item.id ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.actionButtonText}>Download for Offline Use</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.startButton]}
+              onPress={() => router.push(`/Screens/takeAssessment?id=${item.id}`)}
+            >
+              <Text style={styles.actionButtonText}>
+                Start Assessment | ಮೌಲ್ಯಮಾಪನ ಪ್ರಾರಂಭಿಸಿ
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </TouchableOpacity>
     );
   };
@@ -196,20 +415,39 @@ const Assessments = () => {
           <Text style={styles.title}>Assessments</Text>
         </View>
 
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'all' && styles.activeTab]}
+            onPress={() => setActiveTab('all')}
+          >
+            <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>
+              All Assessments
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'downloaded' && styles.activeTab]}
+            onPress={() => setActiveTab('downloaded')}
+          >
+            <Text style={[styles.tabText, activeTab === 'downloaded' && styles.activeTabText]}>
+              Downloaded
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {error && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 
-        {loading ? (
+        {loading && activeTab === 'all' ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={styles.loadingText}>Loading assessments...</Text>
           </View>
         ) : (
           <FlatList
-            data={assessments}
+            data={activeTab === 'all' ? assessments : downloadedAssessments}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContainer}
@@ -217,9 +455,9 @@ const Assessments = () => {
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
-                  {error
-                    ? "Error loading assessments"
-                    : "No active assessments available"}
+                  {activeTab === 'all'
+                    ? "No active assessments available"
+                    : "No downloaded assessments"}
                 </Text>
               </View>
             }
@@ -312,6 +550,16 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     flex: 1,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.error + '10',
+  },
   statusBadge: {
     backgroundColor: Colors.primary + "20",
     paddingHorizontal: 10,
@@ -352,16 +600,40 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.textPrimary,
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  downloadButton: {
+    backgroundColor: Colors.primary,
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  downloadingButton: {
+    backgroundColor: Colors.primary + '80',
+  },
+  downloadButtonText: {
+    color: '#FFFFFF',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
   startButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: "center",
   },
-  startButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
+  actionButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
   emptyContainer: {
     padding: 30,
@@ -385,5 +657,36 @@ const styles = StyleSheet.create({
     color: Colors.error,
     fontSize: 14,
     textAlign: "center",
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: width * 0.05,
+    marginVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: Colors.primary,
+  },
+  tabText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  activeTabText: {
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  downloadedBadge: {
+    backgroundColor: Colors.primary + "20",
+  },
+  downloadedText: {
+    color: Colors.primary,
   },
 });
