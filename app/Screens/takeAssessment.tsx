@@ -58,6 +58,11 @@ interface Student {
   status: "ACTIVE" | "INACTIVE";
 }
 
+interface CompletedStudent {
+  id: string;
+  completedAt: string;
+}
+
 interface QuestionTimestamp {
   questionId: string;
   startTime: number; // milliseconds from start of recording
@@ -101,6 +106,9 @@ const TakeAssessment = () => {
   const [loading, setLoading] = useState(true);
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [completedStudents, setCompletedStudents] = useState<
+    CompletedStudent[]
+  >([]);
   const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
@@ -756,7 +764,12 @@ const TakeAssessment = () => {
     }
   };
 
-  // Modify submitResponses to use the new storage system
+  // Add function to check if student is completed
+  const isStudentCompleted = (studentId: string) => {
+    return completedStudents.some((s) => s.id === studentId);
+  };
+
+  // Modify submitResponses to track completed students
   const submitResponses = async () => {
     if (!currentStudent || !assessment) {
       Alert.alert("Error", "Missing student or assessment data");
@@ -794,6 +807,12 @@ const TakeAssessment = () => {
 
       // Store the pending upload
       await storePendingUpload(pendingUpload);
+
+      // Add to completed students
+      setCompletedStudents((prev) => [
+        ...prev,
+        { id: currentStudent.id, completedAt: new Date().toISOString() },
+      ]);
 
       // If we're in offline mode, also store in offline submissions
       if (isOfflineMode) {
@@ -1018,6 +1037,16 @@ const TakeAssessment = () => {
     currentTimestamp && currentTimestamp.endTime === 0
   );
 
+  // Simplify header render
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>←</Text>
+      </TouchableOpacity>
+      <Text style={styles.title}>Select Student</Text>
+    </View>
+  );
+
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -1060,15 +1089,7 @@ const TakeAssessment = () => {
           backgroundColor={Colors.background}
         />
         <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.backButtonText}>←</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>Select Student</Text>
-          </View>
+          {renderHeader()}
 
           {error && (
             <View style={styles.errorContainer}>
@@ -1095,6 +1116,25 @@ const TakeAssessment = () => {
                     {student.status === "ACTIVE" ? "Active" : "Inactive"}
                   </Text>
                 </View>
+                <View
+                  style={[
+                    styles.statusTag,
+                    isStudentCompleted(student.id)
+                      ? styles.completedTag
+                      : styles.remainingTag,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusTagText,
+                      isStudentCompleted(student.id)
+                        ? styles.completedTagText
+                        : styles.remainingTagText,
+                    ]}
+                  >
+                    {isStudentCompleted(student.id) ? "Completed" : "Remaining"}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
 
@@ -1113,191 +1153,262 @@ const TakeAssessment = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => {
-              if (isRecording) {
-                Alert.alert(
-                  "Assessment in Progress",
-                  "Please finish the assessment before going back"
-                );
-                return;
-              }
-
-              // Confirm if user wants to abandon assessment
-              Alert.alert(
-                "Cancel Assessment",
-                "Are you sure you want to cancel this assessment? All recordings will be lost.",
-                [
-                  { text: "No", style: "cancel" },
-                  {
-                    text: "Yes",
-                    style: "destructive",
-                    onPress: () => {
-                      if (recording) {
-                        recording.stopAndUnloadAsync().catch(console.error);
-                      }
-                      setCurrentStudent(null);
-                      router.back();
-                    },
-                  },
-                ]
-              );
-            }}
-          >
-            <Text style={styles.backButtonText}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>{assessment?.name}</Text>
-          {isOfflineMode && (
-            <View style={styles.offlineBadge}>
-              <Text style={styles.offlineBadgeText}>Offline Mode</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.studentBadge}>
-          <Text style={styles.studentBadgeText}>
-            Student: {currentStudent.name}
-          </Text>
-        </View>
-
-        <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>
-            Question {currentQuestionIndex + 1} of {allQuestions.length}
-          </Text>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${
-                    ((currentQuestionIndex + 1) / allQuestions.length) * 100
-                  }%`,
-                },
-              ]}
-            />
-          </View>
-        </View>
-
-        {currentQuestion && (
-          <View style={styles.questionContainer}>
-            <View style={styles.questionHeader}>
-              <View style={styles.questionTextContainer}>
-                <Text style={styles.questionText}>{currentQuestion.text}</Text>
-                {currentQuestion.audioUrl && (
-                  <TouchableOpacity
-                    style={[
-                      styles.audioIconButton,
-                      isAudioPlaying && styles.audioIconButtonPlaying,
-                    ]}
-                    onPress={playQuestionAudio}
-                    disabled={isAudioPlaying}
-                  >
-                    <Ionicons
-                      name={isAudioPlaying ? "volume-high" : "volume-medium"}
-                      size={24}
-                      color={
-                        isAudioPlaying ? Colors.primary : Colors.textSecondary
-                      }
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-            {(isOfflineMode
-              ? currentQuestionMedia.imageUrl
-              : currentQuestion.imageUrl) && (
-              <View>
-                <Image
-                  source={{
-                    uri: isOfflineMode
-                      ? currentQuestionMedia.imageUrl
-                      : currentQuestion.imageUrl,
-                  }}
-                  style={{ width: "100%", height: 200 }}
-                  resizeMode="contain"
-                />
+        {!currentStudent ? (
+          <>
+            {renderHeader()}
+            {error && (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
-            <View style={styles.recordingContainer}>
-              {!isQuestionInProgress && !questionCompleted && (
+            <ScrollView contentContainerStyle={styles.studentListContainer}>
+              {students.map((student) => (
                 <TouchableOpacity
-                  style={styles.recordButton}
-                  onPress={markQuestionStart}
+                  key={student.id}
+                  style={styles.studentCard}
+                  onPress={() => selectStudent(student)}
                 >
-                  <Text style={styles.recordButtonText}>
-                    Start Question | ಪ್ರಶ್ನೆ ಪ್ರಾರಂಭಿಸಿ
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {isQuestionInProgress && (
-                <View style={styles.recordingActiveContainer}>
-                  <View style={styles.recordingIndicator}>
-                    <View style={styles.recordingDot} />
-                    <Text style={styles.recordingText}>Recording...</Text>
+                  <View style={styles.studentInitialContainer}>
+                    <Text style={styles.studentInitial}>
+                      {student.name.charAt(0)}
+                    </Text>
                   </View>
+                  <View style={styles.studentInfo}>
+                    <Text style={styles.studentName}>{student.name}</Text>
+                    <Text style={styles.studentGender}>
+                      {student.gender === "MALE" ? "Boy" : "Girl"} •{" "}
+                      {student.status === "ACTIVE" ? "Active" : "Inactive"}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.statusTag,
+                      isStudentCompleted(student.id)
+                        ? styles.completedTag
+                        : styles.remainingTag,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusTagText,
+                        isStudentCompleted(student.id)
+                          ? styles.completedTagText
+                          : styles.remainingTagText,
+                      ]}
+                    >
+                      {isStudentCompleted(student.id)
+                        ? "Completed"
+                        : "Remaining"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {students.length === 0 && (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No students available</Text>
+                </View>
+              )}
+            </ScrollView>
+          </>
+        ) : (
+          <>
+            <View style={styles.header}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => {
+                  if (isRecording) {
+                    Alert.alert(
+                      "Assessment in Progress",
+                      "Please finish the assessment before going back"
+                    );
+                    return;
+                  }
+
+                  // Confirm if user wants to abandon assessment
+                  Alert.alert(
+                    "Cancel Assessment",
+                    "Are you sure you want to cancel this assessment? All recordings will be lost.",
+                    [
+                      { text: "No", style: "cancel" },
+                      {
+                        text: "Yes",
+                        style: "destructive",
+                        onPress: () => {
+                          if (recording) {
+                            recording.stopAndUnloadAsync().catch(console.error);
+                          }
+                          setCurrentStudent(null);
+                          router.back();
+                        },
+                      },
+                    ]
+                  );
+                }}
+              >
+                <Text style={styles.backButtonText}>←</Text>
+              </TouchableOpacity>
+              <Text style={styles.title}>{assessment?.name}</Text>
+              {isOfflineMode && (
+                <View style={styles.offlineBadge}>
+                  <Text style={styles.offlineBadgeText}>Offline Mode</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.studentBadge}>
+              <Text style={styles.studentBadgeText}>
+                Student: {currentStudent.name}
+              </Text>
+            </View>
+
+            <View style={styles.progressContainer}>
+              <Text style={styles.progressText}>
+                Question {currentQuestionIndex + 1} of {allQuestions.length}
+              </Text>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${
+                        ((currentQuestionIndex + 1) / allQuestions.length) * 100
+                      }%`,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            {currentQuestion && (
+              <View style={styles.questionContainer}>
+                <View style={styles.questionHeader}>
+                  <View style={styles.questionTextContainer}>
+                    <Text style={styles.questionText}>
+                      {currentQuestion.text}
+                    </Text>
+                    {currentQuestion.audioUrl && (
+                      <TouchableOpacity
+                        style={[
+                          styles.audioIconButton,
+                          isAudioPlaying && styles.audioIconButtonPlaying,
+                        ]}
+                        onPress={playQuestionAudio}
+                        disabled={isAudioPlaying}
+                      >
+                        <Ionicons
+                          name={
+                            isAudioPlaying ? "volume-high" : "volume-medium"
+                          }
+                          size={24}
+                          color={
+                            isAudioPlaying
+                              ? Colors.primary
+                              : Colors.textSecondary
+                          }
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+                {(isOfflineMode
+                  ? currentQuestionMedia.imageUrl
+                  : currentQuestion.imageUrl) && (
+                  <View>
+                    <Image
+                      source={{
+                        uri: isOfflineMode
+                          ? currentQuestionMedia.imageUrl
+                          : currentQuestion.imageUrl,
+                      }}
+                      style={{ width: "100%", height: 200 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                )}
+                <View style={styles.recordingContainer}>
+                  {!isQuestionInProgress && !questionCompleted && (
+                    <TouchableOpacity
+                      style={styles.recordButton}
+                      onPress={markQuestionStart}
+                    >
+                      <Text style={styles.recordButtonText}>
+                        Start Question | ಪ್ರಶ್ನೆ ಪ್ರಾರಂಭಿಸಿ
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {isQuestionInProgress && (
+                    <View style={styles.recordingActiveContainer}>
+                      <View style={styles.recordingIndicator}>
+                        <View style={styles.recordingDot} />
+                        <Text style={styles.recordingText}>Recording...</Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.stopButton}
+                        onPress={markQuestionEnd}
+                      >
+                        <Text style={styles.stopButtonText}>
+                          End Question | ಪ್ರಶ್ನೆ ಮುಗಿಸಿ
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {questionCompleted && (
+                    <View style={styles.recordingCompleteContainer}>
+                      <Text style={styles.recordingCompleteText}>
+                        Question Complete
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
+            <View style={styles.navigationContainer}>
+              {isCompleted ? (
+                <TouchableOpacity
+                  style={[
+                    styles.submitButton,
+                    isSubmitting ? styles.disabledButton : {},
+                  ]}
+                  onPress={handleSubmitPress}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>
+                      Finish & Submit | ಮುಗಿಸಿ & ಸಲ್ಲಿಸಿ
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.navButtonsContainer}>
+                  <TouchableOpacity
+                    style={styles.skipButton}
+                    onPress={skipStudent}
+                  >
+                    <Text style={styles.skipButtonText}>Skip | ಸ್ಕಿಪ್</Text>
+                  </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={styles.stopButton}
-                    onPress={markQuestionEnd}
+                    style={[
+                      styles.navButton,
+                      !questionCompleted ? styles.disabledButton : {},
+                    ]}
+                    onPress={goToNextQuestion}
+                    disabled={!questionCompleted || isQuestionInProgress}
                   >
-                    <Text style={styles.stopButtonText}>
-                      End Question | ಪ್ರಶ್ನೆ ಮುಗಿಸಿ
-                    </Text>
+                    <Text style={styles.navButtonText}>Next | ಮುಂದೆ</Text>
                   </TouchableOpacity>
                 </View>
               )}
-
-              {questionCompleted && (
-                <View style={styles.recordingCompleteContainer}>
-                  <Text style={styles.recordingCompleteText}>
-                    Question Complete
-                  </Text>
-                </View>
-              )}
             </View>
-          </View>
+          </>
         )}
-
-        <View style={styles.navigationContainer}>
-          {isCompleted ? (
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                isSubmitting ? styles.disabledButton : {},
-              ]}
-              onPress={handleSubmitPress}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={styles.submitButtonText}>
-                  Finish & Submit | ಮುಗಿಸಿ & ಸಲ್ಲಿಸಿ
-                </Text>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.navButtonsContainer}>
-              <TouchableOpacity style={styles.skipButton} onPress={skipStudent}>
-                <Text style={styles.skipButtonText}>Skip | ಸ್ಕಿಪ್</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.navButton,
-                  !questionCompleted ? styles.disabledButton : {},
-                ]}
-                onPress={goToNextQuestion}
-                disabled={!questionCompleted || isQuestionInProgress}
-              >
-                <Text style={styles.navButtonText}>Next | ಮುಂದೆ</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
       </View>
 
       {/* Bottom Sheet Confirmation */}
@@ -1787,5 +1898,27 @@ const styles = StyleSheet.create({
     color: Colors.warning,
     fontSize: 12,
     fontWeight: "600",
+  },
+  statusTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginLeft: 10,
+  },
+  completedTag: {
+    backgroundColor: Colors.success + "20",
+  },
+  remainingTag: {
+    backgroundColor: Colors.warning + "20",
+  },
+  statusTagText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  completedTagText: {
+    color: Colors.success,
+  },
+  remainingTagText: {
+    color: Colors.warning,
   },
 });
